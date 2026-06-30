@@ -54,6 +54,7 @@ scripts/
   api-client.js          # REST client: ping, list, get, create, update; bearer auth
   sync.js                # Push/pull orchestration; windowed session pull; tiptapToHtml; pinned-card render
   ui.js                  # Sync dialog, session pick, push preview, agenda editor
+  error-toaster.js       # friendly error toasts + safeCall wrapper
 styles/
   gmhub.css              # Module-specific UI styling
 templates/               # Handlebars templates for the sync dialog
