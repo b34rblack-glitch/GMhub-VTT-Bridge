@@ -38,6 +38,36 @@ Per-GM personal access tokens issued at `gmhub-app/account/api-tokens` (format `
 - **Pinned shape** carries optional `pin_reason: string | null` (server-side shipped 2026-05-09); v0.4.1+ renders it.
 - **Visibility ride-along.** Per-page eye icon (`page.ownership.default`) reverse-maps to `visibility`: `NONE` → `gm_only`, `OBSERVER` → `campaign`. Written via `flags.gmhub-vtt.visibility`, pushed on the next manual Push (or immediately when `autoPushOnUpdate` is on).
 
+### Pull render fidelity
+
+On Pull, `tiptapToHtml` walks the Tiptap-JSON tree and emits HTML through two private helpers in `scripts/sync.js`. The node and mark types they currently handle are:
+
+| Tiptap node | Aliases | HTML output | Notes |
+|---|---|---|---|
+| `doc` | — | (children only) | Root; no wrapper element |
+| `paragraph` | — | `<p>…</p>` | Empty paragraph → `<p>&nbsp;</p>` |
+| `heading` | — | `<h1>`–`<h6>` | `attrs.level` clamped to 1–6, default 1 |
+| `text` | — | escaped text + marks | `_escapeHtml` then `_applyMarks` |
+| `hardBreak` | `hard_break` | `<br>` | |
+| `horizontalRule` | `horizontal_rule` | `<hr>` | |
+| `bulletList` | `bullet_list` | `<ul>…</ul>` | |
+| `orderedList` | `ordered_list` | `<ol>…</ol>` | |
+| `listItem` | `list_item` | `<li>…</li>` | |
+| `blockquote` | — | `<blockquote>…</blockquote>` | |
+| `codeBlock` | `code_block` | `<pre><code>…</code></pre>` | |
+| `mention` | — | `<span class="gmhub-mention" data-entity-type="…" data-entity-id="…">@label</span>` | attrs escaped; label = `attrs.label ?? attrs.id` |
+
+| Tiptap mark | HTML output | Notes |
+|---|---|---|
+| `bold` | `<strong>…</strong>` | |
+| `italic` | `<em>…</em>` | |
+| `underline` | `<u>…</u>` | |
+| `strike` | `<s>…</s>` | |
+| `code` | `<code>…</code>` | |
+| `link` | `<a href="…" rel="noopener noreferrer">…</a>` | href escaped, defaults to `#` |
+
+An unrecognised node type currently renders its children only, with no wrapper element. An unrecognised mark is currently dropped silently — the text still renders, just unstyled. The source of truth for both tables is `_nodeToHtml` and `_applyMarks` in `scripts/sync.js`; keep this section in sync with them.
+
 ### Rules of engagement
 
 - **`gmhub-app` makes the call on shape changes.** If they change a payload, this module's `api-client.js` follows; bump `module.json#version` for any consumer-facing change.
