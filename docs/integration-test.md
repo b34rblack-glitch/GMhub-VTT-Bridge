@@ -1,7 +1,7 @@
 # Integration Test — Epic E end-to-end roundtrip
 
 > Manual smoke test that exercises the full GMhub `/api/v1/*` ↔ Foundry
-> module roundtrip. Runs before every release. The seventeen steps below
+> module roundtrip. Runs before every release. The 21 steps below
 > are the **cross-repo Epic-E definition-of-done**: changes on either side
 > that alter the contract require updating this checklist.
 
@@ -9,7 +9,8 @@
 
 - A GMhub deployment with **E1–E9 merged** to `main` (Vercel preview
   works fine).
-- Foundry VTT v12 with the `dnd5e` system ≥ 3.0.0.
+- Foundry VTT v14 (the module's verified version; compat v11–v14) with the
+  `dnd5e` system ≥ 3.0.0.
 - A throwaway test user / campaign — this exercises destructive flows
   (revoking tokens, ending sessions).
 
@@ -109,11 +110,11 @@
 
 ## Recording the run
 
-When the seventeen steps pass, record in the PR description:
+When the 21 steps pass, record in the PR description:
 
 ```
 Integration test run by <name> on <date> against <GMhub URL>.
-Module: v<x.y.z>, Foundry: v12.<patch>, dnd5e: <version>.
+Module: v<x.y.z>, Foundry: v14.<patch>, dnd5e: <version>.
 All steps passed.
 ```
 

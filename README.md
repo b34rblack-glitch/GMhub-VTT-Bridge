@@ -39,7 +39,7 @@ For the cross-repo contract see [`docs/SISTER_REPO.md`](docs/SISTER_REPO.md).
 | Shipped feature log | [`docs/EPICS.md`](docs/EPICS.md) |
 | Upstream dependency | `gmhub-app` Epic E — Public API & Foundry Foundations (✅ shipped 2026-05-08) |
 
-The cross-repo end-to-end gate is the seventeen-step checklist in [`docs/integration-test.md`](docs/integration-test.md). Run it against a `gmhub-app` Vercel preview before cutting any release.
+The cross-repo end-to-end gate is the 21-step checklist in [`docs/integration-test.md`](docs/integration-test.md). Run it against a `gmhub-app` Vercel preview before cutting any release.
 
 ---
 
