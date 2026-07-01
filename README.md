@@ -88,13 +88,50 @@ The module talks to the GMhub Public API tracked under **Epic E** in [`b34rblack
 
 ## Development
 
-Clone into your Foundry `Data/modules/` directory:
+This is a plain-ES-modules Foundry module: **no build, no bundler, no transpile step.** Foundry loads `scripts/*.js` directly. The development loop is the whole story — side-load a working copy, edit, reload.
+
+### The edit–reload loop
+
+Clone (or symlink) a working copy straight into your Foundry data directory so Foundry loads your live checkout:
 
 ```bash
-git clone https://github.com/b34rblack-glitch/GMhub-VTT.git gmhub-vtt
+git clone https://github.com/b34rblack-glitch/GMhub-VTT.git "$FOUNDRY_DATA/modules/gmhub-vtt"
 ```
 
-Then enable the module in your world.
+Then enable the module in your world. From there the entire cycle is:
+
+1. Edit a file under `scripts/*.js` (or `styles/gmhub.css`, `lang/en.json`, `templates/`).
+2. Reload the Foundry world.
+3. Observe. Repeat.
+
+There is nothing to compile — what you save is what Foundry runs.
+
+### What `module.json` loads
+
+Three arrays in `module.json` gate what Foundry actually loads at world start — a file that isn't listed simply doesn't run:
+
+| Array | Points at | Purpose |
+|---|---|---|
+| `esmodules` | `scripts/main.js` | The single ES-module entry point. `main.js` imports the rest (`sync.js`, `ui.js`, `api-client.js`, `error-toaster.js`) — only the entry is listed here. |
+| `styles` | `styles/gmhub.css` | Module CSS. |
+| `languages` | `lang/en.json` | i18n string table. |
+
+When you add a **new** script, style, or lang file, you must add it to the relevant array **and** make sure its directory is in the copy line that `release.yml` zips (`scripts styles templates lang`, plus `packs/` when present). The arrays and the zip are not a 1:1 mapping — `templates/` ships in the release zip but is referenced from JS (Handlebars), not gated by any manifest array — so keep both in mind: the array controls what Foundry loads, the zip controls what ships.
+
+### Local testing
+
+There is **no automated test runner** — Foundry modules have no established one here, and there is no `npm test`. Local testing is two things:
+
+- **The reload loop above** — most changes are verified by editing and reloading the world.
+- **The manual end-to-end gate**: [`docs/integration-test.md`](docs/integration-test.md), the cross-repo Epic-E roundtrip checklist. Run it against a `gmhub-app` Vercel preview (the checklist's prerequisite is a GMhub deployment; a preview works fine).
+
+### Conventions that bite
+
+A few load-bearing conventions — get these wrong and sync breaks in subtle ways:
+
+- **Stable IDs via flags, never by name.** Every journal we sync stores `flags.gmhub-vtt.externalId`; re-syncs key off that flag, never off the entry's name. Renaming an entry in Foundry must not orphan it.
+- **Manual sync only.** Nothing syncs in the background. The GM presses Pull or Push. The single opt-in escape hatch is the `autoPushOnUpdate` setting, which pushes each page edit immediately — off by default.
+- **Content-links are raw DOM.** Emit Foundry content-links as literal `<a class="content-link" data-uuid="…" draggable="true">…</a>` markup. Foundry recognises this DOM shape on every supported version; don't hand-roll a different anchor shape.
 
 ## Cross-references
 
