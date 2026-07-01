@@ -33,7 +33,7 @@ For the cross-repo contract see [`docs/SISTER_REPO.md`](docs/SISTER_REPO.md).
 
 | | |
 |---|---|
-| Module version | `0.4.4` |
+| Module version | `0.4.6` |
 | Foundry compatibility | v11–v14 (verified v14) |
 | System | dnd5e ≥3.0 |
 | Shipped feature log | [`docs/EPICS.md`](docs/EPICS.md) |
