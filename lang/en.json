@@ -5,6 +5,8 @@
   "GMHUB.Settings.ApiKey.Hint": "Bearer token from /account/api-tokens. Plaintext starts with gmhub_pat_ and is shown exactly once at issuance.",
   "GMHUB.Settings.CampaignId.Name": "GMhub Campaign ID",
   "GMHUB.Settings.CampaignId.Hint": "UUID of the GMhub campaign this Foundry world is bound to. Find it in the URL bar on /campaigns/[id].",
+  "GMHUB.Settings.SessionRecapCount.Name": "Recap sessions to keep",
+  "GMHUB.Settings.SessionRecapCount.Hint": "How many of the most-recently-ended sessions Pull keeps in Foundry (the recap window). Default 1. Prep and the running session are always kept regardless.",
   "GMHUB.Settings.AutoPush.Name": "Auto-push journal updates",
   "GMHUB.Settings.AutoPush.Hint": "When enabled, any journal edited in Foundry is pushed to GMhub immediately.",
   "GMHUB.Settings.Mapping.Menu.Name": "Player mapping",

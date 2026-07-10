@@ -81,21 +81,25 @@ const SESSION_PAGE_SECRETS = "GM Secrets";
 const SESSION_PAGE_PINNED = "Pinned";
 
 // -----------------------------------------------------------------------------
-// computeSessionWindow(sessions)
+// computeSessionWindow(sessions, recapCount)
 // -----------------------------------------------------------------------------
-// v0.4.0 windowing: from the full server-side session list, keep only
-// the sessions we want mirrored locally — all prep, the running one (if
-// any), and the most recently ended (recap). Everything older is pruned
-// from Foundry by the orphan-cleanup pass in `pullAll`.
+// v0.4.0 windowing (recap window made GM-configurable in v0.5.0): from
+// the full server-side session list, keep only the sessions we want
+// mirrored locally — all prep, the running one (if any), and the
+// `recapCount` most-recently-ended sessions (the recap window).
+// `recapCount` defaults to 1, which reproduces the historical
+// single-recap behavior byte-for-byte. Everything older is pruned from
+// Foundry by the orphan-cleanup pass in `pullAll`.
 // -----------------------------------------------------------------------------
-function computeSessionWindow(sessions) {
+function computeSessionWindow(sessions, recapCount = 1) {
   // Defensive normalization — server might return null or an envelope.
   const list = Array.isArray(sessions) ? sessions : [];
   // Prep sessions: not yet started, not yet ended.
   const prep = list.filter((s) => s && !s.started_at && !s.ended_at);
   // At most one running session per campaign (server enforces).
   const running = list.find((s) => s && s.started_at && !s.ended_at);
-  // Ended sessions sorted newest-first so [0] is the most recent recap.
+  // Ended sessions sorted newest-first so slice(0, N) keeps the N most
+  // recent recaps.
   const ended = list
     .filter((s) => s && s.ended_at)
     .sort((a, b) => {
@@ -103,13 +107,16 @@ function computeSessionWindow(sessions) {
       const tb = b.ended_at ? new Date(b.ended_at).getTime() : 0;
       return tb - ta;
     });
-  const lastRecap = ended[0] ?? null;
+  // Keep the top-N most-recently-ended sessions. N=1 -> slice(0,1) is
+  // identical to the old `ended[0]`; N larger than the ended count
+  // safely returns fewer.
+  const recap = ended.slice(0, recapCount);
   // De-dupe via Map<id, session> in case the API returned duplicates
   // (and to give a deterministic order regardless of input order).
   const byId = new Map();
   for (const s of prep) if (s?.id) byId.set(s.id, s);
   if (running?.id) byId.set(running.id, running);
-  if (lastRecap?.id) byId.set(lastRecap.id, lastRecap);
+  for (const s of recap) if (s?.id) byId.set(s.id, s);
   return Array.from(byId.values());
 }
 
@@ -874,7 +881,12 @@ export class SyncService {
     let pulledSessionIds = new Set();
     try {
       const sessionsList = await this.client.listSessions(campaignId);
-      const window = computeSessionWindow(sessionsList ?? []);
+      // GM-configurable recap window (v0.5.0). Clamp a blank/NaN/0/
+      // negative setting back to 1 so the window can never collapse to
+      // "no recap"; default 1 reproduces the historical behavior.
+      const rawRecap = Number(game.settings.get(MODULE_ID, "sessionRecapCount"));
+      const recapCount = Number.isFinite(rawRecap) && rawRecap >= 1 ? Math.floor(rawRecap) : 1;
+      const window = computeSessionWindow(sessionsList ?? [], recapCount);
       // Only create the folder when there's at least one session to put in it.
       const folder = window.length > 0 ? await ensureSessionFolder() : null;
       for (const session of window) {
