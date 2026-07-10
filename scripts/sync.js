@@ -801,10 +801,16 @@ export class SyncService {
   // ---------------------------------------------------------------------------
   // pullAll({ confirmOverwrite })
   // ---------------------------------------------------------------------------
-  // The Pull pipeline. Walks every entity kind, then notes, then the
-  // session window. Aggregates errors per-resource so one bad page
-  // doesn't abort the whole run. Orphan-cleanup at the end removes
-  // stale session journals (skipping any with unpushed dirty edits).
+  // The Pull pipeline, as a thin orchestrator over four private
+  // per-resource-kind steps. Each step isolates its own error
+  // accumulation into `result.errors` so one bad page/kind doesn't abort
+  // the run. Order (unchanged): entities → notes → unmapped-recipients
+  // warning → sessions → orphan cleanup → lastPullAt stamp → return.
+  //
+  // v0.5.0 hardening: orphan cleanup runs ONLY when the session-list
+  // fetch succeeded. On a list-fetch failure we have no authoritative
+  // window, so deleting local session journals would wipe the GM's
+  // archive on a transient error — we skip cleanup entirely instead.
   // ---------------------------------------------------------------------------
   async pullAll({ confirmOverwrite } = {}) {
     const campaignId = game.settings.get(MODULE_ID, "campaignId");
@@ -820,9 +826,51 @@ export class SyncService {
     // Per-resource counters + a flat error list shown in the sync dialog.
     const result = { pulled: { entities: 0, notes: 0, sessions: 0 }, errors: [] };
     // Set so we deduplicate across multiple pages from the same recipient.
+    // Shared across the entity + note steps; drained into one toast below.
     const unmapped = new Set();
 
-    // --- Entities (NPCs / Locations / Factions / Items / Quests / Lore) ----
+    // Entities and notes both mutate the shared `unmapped` set.
+    await this._pullEntities(campaignId, result, unmapped);
+    await this._pullNotes(campaignId, result, unmapped);
+
+    // --- Unmapped-recipients warning ---------------------------------------
+    // One toast per Pull, not one per page. Tells the GM exactly which
+    // GMhub user ids need a Foundry-user mapping. Runs once, after both
+    // entities and notes have contributed to `unmapped`.
+    if (unmapped.size > 0) {
+      const list = Array.from(unmapped).join(", ");
+      ui.notifications?.warn(
+        game.i18n.format("GMHUB.Warn.UnmappedRecipients", {
+          count: unmapped.size,
+          ids: list
+        })
+      );
+    }
+
+    // --- Sessions (windowed) + orphan cleanup ------------------------------
+    const sessions = await this._pullSessions(campaignId, result);
+    // Guard the destructure so a future missing-return can't crash cleanup.
+    const pulledSessionIds = sessions?.pulledSessionIds ?? new Set();
+    // Only clean up orphans when we have an authoritative window — i.e.
+    // the list fetch succeeded. Skipping on failure protects the archive.
+    if (sessions?.listOk) {
+      await this._cleanupOrphanSessions(pulledSessionIds, result);
+    }
+
+    // Stamp the last-pull timestamp so the SyncDialog can display it.
+    await game.settings.set(MODULE_ID, "lastPullAt", new Date().toISOString());
+    return result;
+  }
+
+  // ---------------------------------------------------------------------------
+  // _pullEntities(campaignId, result, unmapped)
+  // ---------------------------------------------------------------------------
+  // Pull every entity kind (NPCs / Locations / Factions / Items / Quests
+  // / Lore) into its kind-journal. Per-kind try/catch so one failing
+  // kind doesn't abort the rest; skipped recipients accumulate into the
+  // shared `unmapped` set for the caller's single warning.
+  // ---------------------------------------------------------------------------
+  async _pullEntities(campaignId, result, unmapped) {
     for (const [kind, journalName] of Object.entries(KIND_JOURNAL_NAMES)) {
       try {
         const journal = await this._findOrCreateJournal(journalName, kind);
@@ -844,8 +892,15 @@ export class SyncService {
         result.errors.push({ name: journalName, message: err.message ?? String(err) });
       }
     }
+  }
 
-    // --- Notes --------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // _pullNotes(campaignId, result, unmapped)
+  // ---------------------------------------------------------------------------
+  // Pull long-form notes into the single Notes journal. One try/catch
+  // around the whole block; skipped recipients feed the shared set.
+  // ---------------------------------------------------------------------------
+  async _pullNotes(campaignId, result, unmapped) {
     try {
       const notesJournal = await this._findOrCreateJournal(NOTES_JOURNAL_NAME, "notes");
       for await (const note of this.client.iterateAll(
@@ -861,24 +916,23 @@ export class SyncService {
     } catch (err) {
       result.errors.push({ name: NOTES_JOURNAL_NAME, message: err.message ?? String(err) });
     }
+  }
 
-    // --- Unmapped-recipients warning ---------------------------------------
-    // One toast per Pull, not one per page. Tells the GM exactly which
-    // GMhub user ids need a Foundry-user mapping.
-    if (unmapped.size > 0) {
-      const list = Array.from(unmapped).join(", ");
-      ui.notifications?.warn(
-        game.i18n.format("GMHUB.Warn.UnmappedRecipients", {
-          count: unmapped.size,
-          ids: list
-        })
-      );
-    }
-
-    // --- Sessions (windowed) -----------------------------------------------
-    // Track which sessions we successfully wrote so the orphan-cleanup
-    // pass below can delete anything *not* in the active window.
-    let pulledSessionIds = new Set();
+  // ---------------------------------------------------------------------------
+  // _pullSessions(campaignId, result)
+  // ---------------------------------------------------------------------------
+  // Pull the windowed session set: read the GM-configurable recap count,
+  // compute the window, and upsert each session's journal with per-session
+  // failure isolation. Always returns `{ pulledSessionIds, listOk }` —
+  // `pulledSessionIds` is a Set of the session ids we successfully wrote
+  // (authoritative for orphan cleanup), and `listOk` is false only when
+  // the session-LIST fetch itself failed (a per-session plan error keeps
+  // `listOk` true, matching the historical orphan-cleanup behavior).
+  // ---------------------------------------------------------------------------
+  async _pullSessions(campaignId, result) {
+    // Track which sessions we successfully wrote so orphan cleanup can
+    // delete anything *not* in the active window.
+    const pulledSessionIds = new Set();
     try {
       const sessionsList = await this.client.listSessions(campaignId);
       // GM-configurable recap window (v0.5.0). Clamp a blank/NaN/0/
@@ -904,15 +958,26 @@ export class SyncService {
           });
         }
       }
+      // The list fetch succeeded — cleanup is safe to run.
+      return { pulledSessionIds, listOk: true };
     } catch (err) {
       result.errors.push({ name: "sessions-list", message: err.message ?? String(err) });
+      // List fetch failed — signal the orchestrator to SKIP cleanup so a
+      // transient error doesn't wipe the GM's local session archive.
+      return { pulledSessionIds, listOk: false };
     }
+  }
 
-    // --- Orphan cleanup ----------------------------------------------------
-    // Anything we have locally that didn't show up in the window is
-    // outside scope — either ended long ago (recap is older than the
-    // newest ended one we kept) or deleted in the web app. Delete it,
-    // unless it's carrying unpushed dirty edits (then warn instead).
+  // ---------------------------------------------------------------------------
+  // _cleanupOrphanSessions(pulledSessionIds, result)
+  // ---------------------------------------------------------------------------
+  // Delete local session journals that fell outside the active window —
+  // either ended long ago (older than the newest ended ones we kept) or
+  // deleted in the web app. A journal carrying unpushed dirty edits is
+  // skipped and surfaced in one aggregate warning instead of deleted.
+  // Only called when the session-list fetch succeeded (see pullAll).
+  // ---------------------------------------------------------------------------
+  async _cleanupOrphanSessions(pulledSessionIds, result) {
     const orphans = this._allSessionJournals().filter(
       (e) => !pulledSessionIds.has(e.getFlag(MODULE_ID, FLAG_EXTERNAL_ID))
     );
@@ -939,10 +1004,6 @@ export class SyncService {
         `[gmhub-vtt] Skipped ${skippedDirty.length} stale session journal(s) with unpushed edits: ${skippedDirty.join(", ")}. Push or delete manually before next Pull.`
       );
     }
-
-    // Stamp the last-pull timestamp so the SyncDialog can display it.
-    await game.settings.set(MODULE_ID, "lastPullAt", new Date().toISOString());
-    return result;
   }
 
   // ---------------------------------------------------------------------------
