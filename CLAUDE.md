@@ -25,7 +25,7 @@ When the user asks for an "audit" or "review", deliver findings inline in the co
 | Repo | `github.com/b34rblack-glitch/GMhub-VTT` |
 | Sister repo | `github.com/b34rblack-glitch/GMhub-app` (web app; tracks this repo as Epic G; owns the `/api/v1` surface as Epic E) |
 | Module ID | `gmhub-vtt` |
-| Current version | `0.4.4` |
+| Current version | `0.5.0` |
 | Foundry compat | v11 minimum, v14 verified, v14 maximum |
 | System | `dnd5e` ≥ 3.0.0 |
 | Manifest URL | `https://github.com/b34rblack-glitch/GMhub-VTT/releases/latest/download/module.json` |
@@ -74,14 +74,14 @@ This module is coupled to `gmhub-app` through exactly one surface: the `/api/v1`
   - `session_plan.agenda` is opaque JSON server-side; canonical Scene shape `{ id, title, notes, entities: [{id, name, entityType}], estimated_duration_min, order, ticked }`.
   - **Pinned shape:** `{ entity_id, entity_type, name, staged_at, position, pin_reason? }`. Server-side `pin_reason` shipped in `gmhub-app` 2026-05-09; v0.4.1+ renders it.
   - **Visibility ride-along.** Foundry's per-page eye icon (`page.ownership.default`) reverse-maps to `visibility`: `NONE` → `gm_only`, `OBSERVER` → `campaign`.
-  - **Windowed session pull (v0.4.0).** `listSessions` filtered client-side to: prep + most-recent ended + running. Orphans deleted on Pull unless they carry unpushed dirty edits.
+  - **Windowed session pull (v0.4.0; recap count GM-configurable in v0.5.0).** `listSessions` filtered client-side to: prep + running + the `sessionRecapCount` most-recently-ended sessions (default 1). Orphans deleted on Pull unless they carry unpushed dirty edits — and cleanup is skipped entirely when the session-list fetch fails.
 - Either side changes the contract → the other side's `docs/EPICS.md` gets a follow-up row.
 
 ## 4. Current Focus
 
 > **Update this section at the start of every new release.**
 
-`v0.4.4` closed GMV-9 (PushPreviewDialog per-session breakdown when more than one session journal is dirty). **GMV-6 (Push HTML ↔ Tiptap round-trip) closed server-side** via `gmhub-app` PR #64 (2026-05-09): the `/api/v1` PATCH routes for entities, notes, and session plans now normalize HTML bodies to Tiptap-JSON via jsdom + `@tiptap/html.generateJSON` before persistence. This module's existing Push path — which sends HTML — round-trips losslessly without a code change here; verified end-to-end with the Senna Blackwater NPC test on 2026-05-09. No active backlog item breaks documented behaviour. Next on deck (recommendation): **GMV-7** (AgendaEditor entity-link UI) or **GMV-5** (ApplicationV2 migration).
+`v0.5.0` closed **GMV-11**, a sync-path robustness pass — three hardening changes with no wire-format change (so `docs/SISTER_REPO.md` is untouched): (1) `GmhubClient._request` now auto-retries a 429 exactly once — parsing `retryAfter` from the JSON body, sleeping when `<= 60s`, throwing immediately when `> 60s` — instead of only surfacing a toast; (2) the session recap window is a GM-configurable `sessionRecapCount` world setting (default 1, byte-identical to the old single-recap behavior) threaded through `computeSessionWindow`; (3) the ~130-line `pullAll` is split into `_pullEntities`/`_pullNotes`/`_pullSessions`/`_cleanupOrphanSessions`, and orphan cleanup is now **skipped when the session-list fetch fails** so a transient error can no longer wipe the local session archive. This release also backfills a `v0.4.6` row (0016 unified visibility) in `docs/EPICS.md` — the version had jumped 0.4.4 → 0.4.6 with no 0.4.5. Next on deck (recommendation): **GMV-7** (AgendaEditor entity-link UI) or **GMV-5** (ApplicationV2 migration).
 
 No active release branch.
 

@@ -101,6 +101,17 @@ Hooks.once("init", () => {
       if (!value && current) game.settings.set(MODULE_ID, "activeSessionId", "");
     }
   });
+  // How many of the most-recently-ended sessions the windowed Pull
+  // keeps locally (the "recap window"). Default 1 reproduces the
+  // historical single-recap behavior exactly; the call site clamps a
+  // blank/NaN/0/negative value back to 1. World-scoped + GM-only like
+  // campaignId; no onChange because nothing caches it — it's read fresh
+  // on every Pull.
+  game.settings.register(MODULE_ID, "sessionRecapCount", {
+    name: "GMHUB.Settings.SessionRecapCount.Name",
+    hint: "GMHUB.Settings.SessionRecapCount.Hint",
+    scope: "world", config: true, type: Number, default: 1
+  });
   // Currently-selected session for quick-note draining + lifecycle
   // controls. `config: false` keeps it out of the settings UI — it's
   // driven entirely by PickSessionDialog and the journal context menu.

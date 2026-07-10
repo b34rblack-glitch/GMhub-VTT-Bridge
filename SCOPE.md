@@ -1,6 +1,6 @@
 # GMhub-VTT — Project Scope
 
-**Status:** Draft baseline — 2026-05-07 · amended 2026-05-08 (windowed multi-session pull, v0.4.0-α) · amended 2026-05-11 (unified visibility model, v0.4.6)
+**Status:** Draft baseline — 2026-05-07 · amended 2026-05-08 (windowed multi-session pull, v0.4.0-α) · amended 2026-05-11 (unified visibility model, v0.4.6) · amended 2026-07-10 (GM-configurable recap window, v0.5.0)
 **Canonical home:** `b34rblack-glitch/GMhub-VTT/SCOPE.md`
 
 This document captures the agreed intent for the GMhub-VTT Foundry module.
@@ -38,7 +38,7 @@ GMhub (webapp)                          Foundry VTT
 ### Content types pulled from GMhub
 - **Entities** (NPCs, Locations, Factions, Items, Quests, Lore) — the codex.
 - **Long-form notes** (GMhub `notes` table).
-- **Session plans (windowed)** — all sessions in `prep`, the most-recently-ended session, and the running session if any.
+- **Session plans (windowed)** — all sessions in `prep`, the running session if any, and the most-recently-ended session(s) — a GM-configurable count (default 1) set via the `sessionRecapCount` module setting.
 
 ### Content types pushed back from Foundry
 - **Visibility changes** on any GMhub-linked item.

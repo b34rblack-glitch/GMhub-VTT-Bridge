@@ -53,6 +53,40 @@ export class GmhubApiError extends Error {
 }
 
 // -----------------------------------------------------------------------------
+// parseRetryAfterSeconds(raw, fallback)
+// -----------------------------------------------------------------------------
+// Coerce a server-supplied retry window (from the 429 JSON body's
+// `retryAfter` field, expressed in seconds) into a safe non-negative
+// number. Anything that isn't a finite, >= 0 value — undefined, a
+// non-numeric string, NaN, Infinity, a negative — degrades to
+// `fallback` (60s). Exported as a pure function so it can be smoke-
+// tested under bare `node` without a Foundry/fetch runtime.
+//   parseRetryAfterSeconds(30)        -> 30
+//   parseRetryAfterSeconds("30")      -> 30
+//   parseRetryAfterSeconds(undefined) -> 60
+//   parseRetryAfterSeconds("abc")     -> 60
+//   parseRetryAfterSeconds(-5)        -> 60
+//   parseRetryAfterSeconds(0)         -> 0
+//   parseRetryAfterSeconds(Infinity)  -> 60
+// -----------------------------------------------------------------------------
+export function parseRetryAfterSeconds(raw, fallback = 60) {
+  const n = Number(raw);
+  // Number.isFinite rejects NaN and ±Infinity in one check; `>= 0`
+  // keeps 0 (retry immediately) but drops negatives.
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
+// -----------------------------------------------------------------------------
+// sleep(ms)
+// -----------------------------------------------------------------------------
+// Minimal promise-based delay used by the 429 auto-retry to wait the
+// server-requested window before replaying the request once.
+// -----------------------------------------------------------------------------
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// -----------------------------------------------------------------------------
 // GmhubClient
 // -----------------------------------------------------------------------------
 // Constructed once at `ready` time with lazy getters for baseUrl + apiKey
@@ -130,6 +164,24 @@ export class GmhubClient {
         key = reread;
         res = await doFetch();
       }
+    }
+    // Retry-on-429: the server rate-limited us. A 429 means the request
+    // was rejected *before* processing, so replaying a POST/PATCH is
+    // side-effect-safe. Read the JSON body (the only place we get the
+    // `retryAfter` window) and decide:
+    //   - window <= 60s (or missing/malformed -> 60): sleep, then replay
+    //     `doFetch()` exactly once. `res` is reassigned to a *fresh*
+    //     Response so the text() read below stays valid (no double-read).
+    //   - window > 60s: don't wait — throw immediately so the existing
+    //     `GMHUB.Error.429` toast fires with the intact retryAfter.
+    // Only one retry: if the replay still 429s it falls through to the
+    // generic non-2xx throw below (no second retry).
+    if (res.status === 429) {
+      const body429 = await res.json().catch(() => ({}));
+      const seconds = parseRetryAfterSeconds(body429?.retryAfter);
+      if (seconds > 60) throw new GmhubApiError(429, body429);
+      await sleep(seconds * 1000);
+      res = await doFetch();
     }
     // 204 No Content is a legitimate success (e.g. DELETE) — return null
     // rather than trying to JSON.parse the empty body.
