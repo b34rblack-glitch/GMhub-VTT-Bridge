@@ -365,3 +365,306 @@ a.gmhub-pinned-name:hover {
   padding-left: 8px;
   font-size: 0.9em;
 }
+
+/* --- 12. SetupWizardDialog -----------------------------------------------
+ * Three-step onboarding flow for first-run configuration. */
+.gmhub-setup-wizard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Progress indicator bar at the top. */
+.gmhub-setup-wizard-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gmhub-setup-wizard-progress-label {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.7;
+  text-align: right;
+}
+
+.gmhub-setup-wizard-progress-bar {
+  height: 4px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.gmhub-setup-wizard-progress-fill {
+  height: 100%;
+  background: #6366f1;
+  transition: width 0.3s ease;
+}
+
+/* Per-step container — only one is visible at a time. */
+.gmhub-setup-wizard-step {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gmhub-setup-wizard-step-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.gmhub-setup-wizard-step-description {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.85;
+  line-height: 1.5;
+}
+
+/* Form groups and labels. */
+.gmhub-setup-wizard-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gmhub-setup-wizard-form-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.gmhub-setup-wizard-form-hint {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+/* Token input field. */
+.gmhub-setup-wizard-token-input {
+  padding: 6px 8px;
+  border: 1px solid var(--color-border-light-secondary);
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.gmhub-setup-wizard-token-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+/* Success/error boxes. */
+.gmhub-setup-wizard-success-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(16, 185, 129, 0.08);
+  border-left: 3px solid #10b981;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #059669;
+}
+
+.gmhub-setup-wizard-error-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(239, 68, 68, 0.08);
+  border-left: 3px solid #ef4444;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #dc2626;
+}
+
+/* Button groups. */
+.gmhub-setup-wizard-button-group {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.gmhub-setup-wizard-button-group button {
+  padding: 6px 12px;
+  font-size: 13px;
+  border: 1px solid var(--color-border-light-secondary);
+  border-radius: 4px;
+  background: var(--color-bg-primary);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.gmhub-setup-wizard-button-group button:hover:not(:disabled) {
+  background: var(--color-bg-secondary);
+}
+
+.gmhub-setup-wizard-button-group button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gmhub-setup-wizard-test-btn {
+  flex: 1;
+  background: #6366f1;
+  color: white;
+  border-color: #6366f1;
+}
+
+.gmhub-setup-wizard-test-btn:hover:not(:disabled) {
+  background: #4f46e5;
+  border-color: #4f46e5;
+}
+
+/* Campaign list (Step 2). */
+.gmhub-setup-wizard-campaign-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.gmhub-setup-wizard-campaign-card {
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  border: 1px solid var(--color-border-light-secondary);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.gmhub-setup-wizard-campaign-card:hover {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.gmhub-setup-wizard-campaign-radio {
+  margin-right: 6px;
+  cursor: pointer;
+}
+
+.gmhub-setup-wizard-campaign-name {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.gmhub-setup-wizard-campaign-meta {
+  opacity: 0.7;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* Campaign summary box. */
+.gmhub-setup-wizard-summary-box {
+  border: 1px solid var(--color-border-light-secondary);
+  border-radius: 4px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.02);
+  margin-top: 8px;
+}
+
+.gmhub-setup-wizard-summary-field {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.gmhub-setup-wizard-summary-field:last-child {
+  margin-bottom: 0;
+}
+
+.gmhub-setup-wizard-summary-field label {
+  font-weight: 500;
+  min-width: 100px;
+}
+
+.gmhub-setup-wizard-summary-field span {
+  text-align: right;
+  opacity: 0.85;
+}
+
+/* Step 3 mapping note. */
+.gmhub-setup-wizard-mapping-note {
+  padding: 8px 10px;
+  background: rgba(99, 102, 241, 0.05);
+  border-left: 3px solid #6366f1;
+  border-radius: 4px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.gmhub-setup-wizard-step3-buttons {
+  gap: 8px;
+}
+
+.gmhub-setup-wizard-skip-btn {
+  flex: 1;
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-light-secondary);
+}
+
+.gmhub-setup-wizard-configure-btn {
+  flex: 1;
+  background: #6366f1;
+  color: white;
+  border-color: #6366f1;
+}
+
+.gmhub-setup-wizard-configure-btn:hover:not(:disabled) {
+  background: #4f46e5;
+  border-color: #4f46e5;
+}
+
+/* Footer with navigation buttons. */
+.gmhub-setup-wizard-footer {
+  margin-top: 12px;
+  border-top: 1px solid var(--color-border-light-tertiary);
+  padding-top: 12px;
+}
+
+.gmhub-setup-wizard-nav-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.gmhub-setup-wizard-prev-btn,
+.gmhub-setup-wizard-next-btn,
+.gmhub-setup-wizard-finish-btn {
+  padding: 6px 16px;
+  font-size: 13px;
+  border: 1px solid var(--color-border-light-secondary);
+  border-radius: 4px;
+  background: var(--color-bg-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.gmhub-setup-wizard-prev-btn:hover:not(:disabled),
+.gmhub-setup-wizard-next-btn:hover:not(:disabled),
+.gmhub-setup-wizard-finish-btn:hover:not(:disabled) {
+  background: var(--color-bg-secondary);
+}
+
+.gmhub-setup-wizard-next-btn,
+.gmhub-setup-wizard-finish-btn {
+  background: #6366f1;
+  color: white;
+  border-color: #6366f1;
+}
+
+.gmhub-setup-wizard-next-btn:hover:not(:disabled),
+.gmhub-setup-wizard-finish-btn:hover:not(:disabled) {
+  background: #4f46e5;
+  border-color: #4f46e5;
+}
+
+.gmhub-setup-wizard-prev-btn:disabled,
+.gmhub-setup-wizard-next-btn:disabled,
+.gmhub-setup-wizard-finish-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

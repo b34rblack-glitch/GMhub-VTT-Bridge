@@ -1,0 +1,186 @@
+<div class="gmhub-setup-wizard">
+  {{!-- Progress bar --}}
+  <div class="gmhub-setup-wizard-progress">
+    <div class="gmhub-setup-wizard-progress-label">{{progressLabel}}</div>
+    <div class="gmhub-setup-wizard-progress-bar">
+      <div class="gmhub-setup-wizard-progress-fill" style="width: {{mul currentStepNumber 33.33}}%"></div>
+    </div>
+  </div>
+
+  {{!-- STEP 1: Token input + validation --}}
+  {{#if step1Visible}}
+  <div class="gmhub-setup-wizard-step gmhub-setup-wizard-step-1">
+    <h2 class="gmhub-setup-wizard-step-title">{{localize "GMHUB.Dialog.SetupWizard.Step1Title"}}</h2>
+    <p class="gmhub-setup-wizard-step-description">{{step1Description}}</p>
+
+    <div class="gmhub-setup-wizard-form-group">
+      <label class="gmhub-setup-wizard-form-label">{{step1TokenLabel}}</label>
+      <input
+        type="text"
+        name="step1-token"
+        class="gmhub-setup-wizard-token-input"
+        placeholder="paste your GMhub personal-access token here"
+        value="{{step1Token}}"
+        {{#if isBusy}}disabled{{/if}}
+      />
+      <small class="gmhub-setup-wizard-form-hint">
+        {{localize "GMHUB.Dialog.SetupWizard.Step1TokenHint"}}
+      </small>
+    </div>
+
+    {{#if step1ValidatedPrincipal}}
+    <div class="gmhub-setup-wizard-success-box">
+      <i class="fas fa-check-circle"></i>
+      <span>
+        {{localize "GMHUB.Dialog.SetupWizard.Step1PingStatus" userId=step1ValidatedPrincipal.user_id}}
+      </span>
+    </div>
+    {{/if}}
+
+    <div class="gmhub-setup-wizard-button-group">
+      <button
+        type="button"
+        class="gmhub-setup-wizard-test-btn"
+        data-action="test-connection"
+        {{#if isBusy}}disabled{{/if}}
+      >
+        {{#if isBusy}}
+          <i class="fas fa-spinner fa-spin"></i> {{localize "GMHUB.Dialog.SetupWizard.Step1Testing"}}
+        {{else}}
+          {{step1PingButtonLabel}}
+        {{/if}}
+      </button>
+    </div>
+  </div>
+  {{/if}}
+
+  {{!-- STEP 2: Campaign selection --}}
+  {{#if step2Visible}}
+  <div class="gmhub-setup-wizard-step gmhub-setup-wizard-step-2">
+    <h2 class="gmhub-setup-wizard-step-title">{{localize "GMHUB.Dialog.SetupWizard.Step2Title"}}</h2>
+    <p class="gmhub-setup-wizard-step-description">{{step2Description}}</p>
+
+    {{#if step2Campaigns.length}}
+    <div class="gmhub-setup-wizard-campaign-list">
+      {{#each step2Campaigns}}
+      <label class="gmhub-setup-wizard-campaign-card">
+        <input
+          type="radio"
+          name="step2-campaign"
+          value="{{this.id}}"
+          class="gmhub-setup-wizard-campaign-radio"
+          {{#if (eq this.id ../step2SelectedCampaignId)}}checked{{/if}}
+          {{#if ../isBusy}}disabled{{/if}}
+        />
+        <div class="gmhub-setup-wizard-campaign-name">{{this.name}}</div>
+        {{#if this.player_count}}
+        <small class="gmhub-setup-wizard-campaign-meta">
+          {{localize "GMHUB.Dialog.SetupWizard.CampaignPlayers" count=this.player_count}}
+        </small>
+        {{/if}}
+      </label>
+      {{/each}}
+    </div>
+
+    {{#if step2CampaignSummary}}
+    <div class="gmhub-setup-wizard-summary-box">
+      <div class="gmhub-setup-wizard-summary-field">
+        <label>{{localize "GMHUB.Dialog.SetupWizard.CampaignName"}}:</label>
+        <span>{{step2CampaignSummary.name}}</span>
+      </div>
+      {{#if step2CampaignSummary.description}}
+      <div class="gmhub-setup-wizard-summary-field">
+        <label>{{localize "GMHUB.Dialog.SetupWizard.CampaignDescription"}}:</label>
+        <span>{{step2CampaignSummary.description}}</span>
+      </div>
+      {{/if}}
+      {{#if step2CampaignSummary.player_count}}
+      <div class="gmhub-setup-wizard-summary-field">
+        <label>{{localize "GMHUB.Dialog.SetupWizard.PlayerCount"}}:</label>
+        <span>{{step2CampaignSummary.player_count}}</span>
+      </div>
+      {{/if}}
+      {{#if step2CampaignSummary.updated_at}}
+      <div class="gmhub-setup-wizard-summary-field">
+        <label>{{localize "GMHUB.Dialog.SetupWizard.LastUpdated"}}:</label>
+        <span>{{step2CampaignSummary.updated_at}}</span>
+      </div>
+      {{/if}}
+    </div>
+    {{/if}}
+    {{else}}
+    <div class="gmhub-setup-wizard-error-box">
+      <i class="fas fa-exclamation-triangle"></i>
+      <span>{{step2NoCampaigns}}</span>
+    </div>
+    {{/if}}
+  </div>
+  {{/if}}
+
+  {{!-- STEP 3: Optional player mapping --}}
+  {{#if step3Visible}}
+  <div class="gmhub-setup-wizard-step gmhub-setup-wizard-step-3">
+    <h2 class="gmhub-setup-wizard-step-title">{{localize "GMHUB.Dialog.SetupWizard.Step3Title"}}</h2>
+    <p class="gmhub-setup-wizard-step-description">{{step3Description}}</p>
+
+    <div class="gmhub-setup-wizard-mapping-note">
+      {{localize "GMHUB.Dialog.SetupWizard.Step3Note"}}
+    </div>
+
+    <div class="gmhub-setup-wizard-button-group gmhub-setup-wizard-step3-buttons">
+      <button
+        type="button"
+        class="gmhub-setup-wizard-skip-btn"
+        data-action="skip-mapping"
+        {{#if isBusy}}disabled{{/if}}
+      >
+        {{step3SkipLabel}}
+      </button>
+      <button
+        type="button"
+        class="gmhub-setup-wizard-configure-btn"
+        data-action="configure-mapping"
+        {{#if isBusy}}disabled{{/if}}
+      >
+        {{step3ConfigureLabel}}
+      </button>
+    </div>
+  </div>
+  {{/if}}
+
+  {{!-- Navigation buttons --}}
+  <div class="gmhub-setup-wizard-footer">
+    <div class="gmhub-setup-wizard-nav-buttons">
+      {{#if canGoPrevious}}
+      <button
+        type="button"
+        class="gmhub-setup-wizard-prev-btn"
+        data-action="previous"
+        {{#if isBusy}}disabled{{/if}}
+      >
+        {{localize "GMHUB.Dialog.SetupWizard.PreviousButton"}}
+      </button>
+      {{/if}}
+
+      {{#if canGoNext}}
+      <button
+        type="button"
+        class="gmhub-setup-wizard-next-btn"
+        data-action="next"
+        {{#if isBusy}}disabled{{/if}}
+      >
+        {{localize "GMHUB.Dialog.SetupWizard.NextButton"}}
+      </button>
+      {{else if step3Reached}}
+      <button
+        type="button"
+        class="gmhub-setup-wizard-finish-btn"
+        data-action="finish"
+        {{#if isBusy}}disabled{{/if}}
+      >
+        {{localize "GMHUB.Dialog.SetupWizard.FinishButton"}}
+      </button>
+      {{/if}}
+    </div>
+  </div>
+</div>

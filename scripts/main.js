@@ -40,6 +40,7 @@ import {
   PlayerMapDialog,
   SyncDialog
 } from "./ui.js";
+import { SetupWizardDialog } from "./setup-wizard.js";
 
 // Canonical module id — matches module.json#id and is the namespace for
 // every flag, setting, and template path in this codebase.
@@ -165,7 +166,8 @@ Hooks.once("init", () => {
     `modules/${MODULE_ID}/templates/push-preview.hbs`,
     `modules/${MODULE_ID}/templates/agenda-editor.hbs`,
     `modules/${MODULE_ID}/templates/player-map.hbs`,
-    `modules/${MODULE_ID}/templates/visibility.hbs`
+    `modules/${MODULE_ID}/templates/visibility.hbs`,
+    `modules/${MODULE_ID}/templates/setup-wizard.hbs`
   ]);
 
   // Register the `eq` helper iff another module hasn't already added
@@ -284,8 +286,14 @@ Hooks.once("ready", () => {
     openPickSession: () => new PickSessionDialog(client).render(true),
     openAgendaEditor: (page) => openAgendaEditorForPage(page),
     openPlayerMap: () => new PlayerMapDialog().render(true),
-    openVisibilityDialog: (page) => openVisibilityDialogForPage(page, client)
+    openVisibilityDialog: (page) => openVisibilityDialogForPage(page, client),
+    openSetupWizard: () => SetupWizardDialog.openSetupWizard(client)
   };
+  // Auto-fire the setup wizard on first run when campaignId is not configured.
+  // GM-only: players don't configure the module.
+  if (game.user.isGM && !game.settings.get(MODULE_ID, "campaignId")) {
+    SetupWizardDialog.openSetupWizard(client);
+  }
 });
 
 // -----------------------------------------------------------------------------
