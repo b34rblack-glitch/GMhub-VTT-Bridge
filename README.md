@@ -37,7 +37,7 @@ Only the GM connects to GMhub — your players never need a GMhub account.
 In Foundry: **Add-on Modules → Install Module**, then paste this manifest URL:
 
 ```
-https://github.com/b34rblack-glitch/GMhub-VTT/releases/latest/download/module.json
+https://github.com/b34rblack-glitch/GMhub-VTT-Bridge/releases/latest/download/module.json
 ```
 
 Enable **GMhub VTT Bridge** in your world's module settings.
@@ -72,5 +72,5 @@ A note on conflicts: sync is deliberately simple — the direction you press win
 
 ## Getting help
 
-- Found a bug or have a request? [Open an issue](https://github.com/b34rblack-glitch/GMhub-VTT/issues).
+- Found a bug or have a request? [Open an issue](https://github.com/b34rblack-glitch/GMhub-VTT-Bridge/issues).
 - Curious about the module's design and roadmap? See [`SCOPE.md`](SCOPE.md) and [`docs/EPICS.md`](docs/EPICS.md).

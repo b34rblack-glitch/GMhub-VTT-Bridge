@@ -42,7 +42,7 @@ jobs:
         run: |
           set -euo pipefail
           jq --arg v "$VERSION" \
-            '.download = "https://github.com/b34rblack-glitch/GMhub-VTT/releases/download/v\($v)/module.zip"' \
+            '.download = "https://github.com/b34rblack-glitch/GMhub-VTT-Bridge/releases/download/v\($v)/module.zip"' \
             module.json > module-released.json
           echo "Built module-released.json with download = $(jq -r '.download' module-released.json)"
 

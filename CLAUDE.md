@@ -1,4 +1,4 @@
-# GMhub-VTT — Claude Code Context
+# GMhub-VTT-Bridge — Claude Code Context
 
 > Foundry VTT module that two-way-syncs Journal Entries with the GMhub web app.
 > Keep this file under 140 lines. Update §4 "Current Focus" at the start of each
@@ -22,13 +22,13 @@ When the user asks for an "audit" or "review", deliver findings inline in the co
 
 | Key | Value |
 |---|---|
-| Repo | `github.com/b34rblack-glitch/GMhub-VTT` |
+| Repo | `github.com/b34rblack-glitch/GMhub-VTT-Bridge` |
 | Sister repo | `github.com/b34rblack-glitch/GMhub-app` (web app; tracks this repo as Epic G; owns the `/api/v1` surface as Epic E) |
 | Module ID | `gmhub-vtt` |
 | Current version | `0.5.0` |
 | Foundry compat | v11 minimum, v14 verified, v14 maximum |
 | System | `dnd5e` ≥ 3.0.0 |
-| Manifest URL | `https://github.com/b34rblack-glitch/GMhub-VTT/releases/latest/download/module.json` |
+| Manifest URL | `https://github.com/b34rblack-glitch/GMhub-VTT-Bridge/releases/latest/download/module.json` |
 
 ## 2. Repo Structure
 
@@ -113,7 +113,7 @@ No active release branch.
 
 ```bash
 # Local install
-git clone https://github.com/b34rblack-glitch/GMhub-VTT.git "$FOUNDRY_DATA/modules/gmhub-vtt"
+git clone https://github.com/b34rblack-glitch/GMhub-VTT-Bridge.git "$FOUNDRY_DATA/modules/gmhub-vtt"
 
 # Cut a release (manual)
 # 1. Bump module.json#version FIRST

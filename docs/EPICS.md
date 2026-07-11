@@ -1,4 +1,4 @@
-# GMhub-VTT — Shipped Feature Log
+# GMhub-VTT-Bridge — Shipped Feature Log
 
 > **The contract.** Append-only history of every release tagged in this repo.
 > Module scope/intent lives in [`../SCOPE.md`](../SCOPE.md) — this file is the **changelog**; SCOPE is the **specification**.

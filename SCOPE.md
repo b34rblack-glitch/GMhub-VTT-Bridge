@@ -1,13 +1,13 @@
-# GMhub-VTT — Project Scope
+# GMhub-VTT-Bridge — Project Scope
 
 **Status:** Draft baseline — 2026-05-07 · amended 2026-05-08 (windowed multi-session pull, v0.4.0-α) · amended 2026-05-11 (unified visibility model, v0.4.6) · amended 2026-07-10 (GM-configurable recap window, v0.5.0)
-**Canonical home:** `b34rblack-glitch/GMhub-VTT/SCOPE.md`
+**Canonical home:** `b34rblack-glitch/GMhub-VTT-Bridge/SCOPE.md`
 
-This document captures the agreed intent for the GMhub-VTT Foundry module.
+This document captures the agreed intent for the GMhub-VTT-Bridge Foundry module.
 
 ## Mission
 
-GMhub-VTT is a Foundry VTT module that lets a GM run a live tabletop session inside Foundry while keeping their GMhub campaign as the canonical archive of campaign content.
+GMhub-VTT-Bridge is a Foundry VTT module that lets a GM run a live tabletop session inside Foundry while keeping their GMhub campaign as the canonical archive of campaign content.
 
 Sync is **explicit and manual**: the GM presses **Pull** to load GMhub content into Foundry, and **Push** to send their table-side work back.
 
