@@ -14,7 +14,8 @@
 // CLASS INVENTORY:
 //   - SyncDialog              — main entry point: Ping, Pull, Push, lifecycle.
 //   - LifecycleConfirmDialog  — destructive-action confirm prompt.
-//   - PushPreviewDialog       — counts + journal names before Push commits.
+//   - PrePushReviewDialog     — grouped dirty-state dashboard + drift; the
+//                               single confirm gate before Push commits.
 //   - AgendaEditorDialog      — agenda/pinned scene + entity editor.
 //   - ConfirmOverwriteDialog  — "you have unpushed edits" Pull guard.
 //   - PickSessionDialog       — list-and-pick the active session.
@@ -296,8 +297,9 @@ export class SyncDialog extends Application {
         this._setStatus(game.i18n.localize("GMHUB.Notify.PullFailed"), err.message ?? "");
       }
     });
-    // Push button. Two-stage: previewPush() to render counts, then
-    // PushPreviewDialog gates the actual pushAll() call.
+    // Push button. Two-stage: previewPush() to gather the dirty-state
+    // dashboard, then PrePushReviewDialog is the single confirm gate on
+    // the actual pushAll() call.
     html.find('[data-action="push"]').on("click", async () => {
       const preview = this.sync.previewPush();
       // Most common error short-circuit: no campaign bound.
@@ -305,8 +307,9 @@ export class SyncDialog extends Application {
         this._setStatus(game.i18n.localize("GMHUB.Notify.PushFailed"), preview.error);
         return;
       }
-      // Preview confirm gate via the shared helper. Same pattern as Pull.
-      const confirmed = await confirmViaDialog(PushPreviewDialog, { preview });
+      // Pre-push review dashboard is the single confirm gate (no double-
+      // confirm). total==0 opens it to the "nothing to push" empty state.
+      const confirmed = await confirmViaDialog(PrePushReviewDialog, { preview });
       if (!confirmed) { this._setStatus(game.i18n.localize("GMHUB.Notify.PushCancelled")); return; }
       this._setStatus(game.i18n.localize("GMHUB.Notify.Pushing"));
       try {
@@ -367,21 +370,31 @@ export class LifecycleConfirmDialog extends Application {
 }
 
 // =============================================================================
-// PushPreviewDialog
+// PrePushReviewDialog
 // =============================================================================
-// Renders a categorized count of what `pushAll` would do, so the GM
-// can sanity-check before committing. GMV-9 expanded this to list the
-// individual session journals that have dirty plan pages.
+// The pre-push review dashboard — the single confirm gate on Push
+// (supersedes the old PushPreviewDialog). Groups every pending change
+// (entities create/update, notes create/update, quick-note queue,
+// per-session plan edits) with counts and per-entry rows, plus a
+// read-only visibility-drift group. Document-backed rows (entities,
+// notes, session journals) open the underlying page/journal on click;
+// quick-notes, the session-plan field label, and drift rows are
+// read-only. Fed by `previewPush()` (see sync.js).
+//
+// total==0 preserves the old behaviour exactly: the dialog still opens
+// (no pre-dialog short-circuit) and renders the "nothing to push" empty
+// state with a disabled Confirm; drift is NOT shown in the empty branch,
+// so it only ever surfaces alongside real pending work.
 // =============================================================================
-export class PushPreviewDialog extends Application {
+export class PrePushReviewDialog extends Application {
   constructor({ preview = null, onConfirm = () => {} } = {}, options = {}) {
     super(options); this.preview = preview; this.onConfirm = onConfirm;
   }
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
-      id: "gmhub-push-preview", title: "Push preview",
-      template: `modules/${MODULE_ID}/templates/push-preview.hbs`,
-      width: 520, height: "auto", classes: ["gmhub-push-preview-dialog"]
+      id: "gmhub-pre-push-review", title: "Pre-push review",
+      template: `modules/${MODULE_ID}/templates/pre-push-review.hbs`,
+      width: 560, height: "auto", classes: ["gmhub-pre-push-review-dialog"]
     });
   }
   getData() {
@@ -395,6 +408,7 @@ export class PushPreviewDialog extends Application {
     if (sp.pinned) sessionPlanFields.push("pinned");
     return {
       // Empty preview triggers the "nothing to push" branch in the template.
+      // total EXCLUDES drift, so a drift-only world still reads as empty.
       empty: (p.total ?? 0) === 0,
       entitiesCreate: p.entities?.create ?? [],
       entitiesUpdate: p.entities?.update ?? [],
@@ -404,13 +418,28 @@ export class PushPreviewDialog extends Application {
       // null when no fields are set so the template can {{#if}} cleanly.
       sessionPlanLabel: sessionPlanFields.length ? sessionPlanFields.join(", ") : null,
       sessionPlanJournals: p.sessionPlanJournals ?? [],
-      quickNotes: p.quickNotes ?? 0
+      quickNotes: p.quickNotes ?? 0,
+      // Read-only bucket; the template only renders it in the non-empty branch.
+      visibilityDrift: p.visibilityDrift ?? []
     };
   }
   activateListeners(html) {
     super.activateListeners(html);
     html.find('[data-action="cancel"]').on("click", () => this.close());
     html.find('[data-action="confirm"]').on("click", () => { this.onConfirm(); this.close(); });
+    // Click-through: open the underlying Foundry document for a row that
+    // carries a uuid. fromUuidSync is null-guarded because the doc may have
+    // been deleted between preview and click.
+    html.find('[data-action="open-doc"]').on("click", (evt) => {
+      const uuid = evt.currentTarget.dataset.uuid;
+      if (!uuid) return;
+      const doc = fromUuidSync(uuid);
+      if (!doc) return;
+      // A JournalEntryPage opens its parent journal focused on the page;
+      // a JournalEntry (session journal) opens its own sheet.
+      if (doc.documentName === "JournalEntryPage") doc.parent?.sheet?.render(true, { pageId: doc.id });
+      else doc.sheet?.render(true);
+    });
   }
 }
 
