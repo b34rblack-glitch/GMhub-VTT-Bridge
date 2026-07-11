@@ -28,7 +28,7 @@ The module syncs journal-shaped content only. It does not touch Foundry's Scenes
 |---|---|
 | Foundry VTT | v11 – v14 (verified on v14) |
 | Game system | D&D 5e (dnd5e) 3.0 or newer |
-| GMhub | An account and a campaign at [gmhub.app](https://www.gmhub.app/) |
+| GMhub | An account and a campaign at [GMhub.app](https://www.gmhub.app/) |
 
 Only the GM connects to GMhub — your players never need a GMhub account.
 
