@@ -26,7 +26,7 @@ The two projects are coupled through one thing only: the `/api/v1` REST surface,
 ### Ownership
 
 - **`gmhub-app` owns the API surface.** Endpoint shapes, request/response payloads, auth model, and token issuance are all defined there. Live spec at https://gmhub.app/docs.
-- **`gmhub-vtt` (this repo) owns its consumption side and its scope.** What we sync (content types, push/pull semantics, conflict policy) is documented in [`../SCOPE.md`](../SCOPE.md). The wire format mirrors what Epic E exposes.
+- **`gmhub-vtt-bridge` (this repo) owns its consumption side and its scope.** What we sync (content types, push/pull semantics, conflict policy) is documented in [`../SCOPE.md`](../SCOPE.md). The wire format mirrors what Epic E exposes.
 
 ### Auth
 
@@ -36,7 +36,7 @@ Per-GM personal access tokens issued at `gmhub-app/account/api-tokens` (format `
 
 - **Rich-text fields** (`entity.summary`, `note.body`, `session_plan.gm_notes`, `session_plan.gm_secrets`) are Tiptap ProseMirror-JSON server-side. Pull renders to HTML via `tiptapToHtml` in `scripts/sync.js`. Push sends HTML; **`gmhub-app` normalizes HTML → Tiptap-JSON server-side on the `/api/v1` PATCH routes** (jsdom + `@tiptap/html.generateJSON`, shipped 2026-05-09 — closes GMV-6, see [`docs/EPICS.md`](EPICS.md) Reconciliation).
 - **Pinned shape** carries optional `pin_reason: string | null` (server-side shipped 2026-05-09); v0.4.1+ renders it.
-- **Visibility ride-along.** Per-page eye icon (`page.ownership.default`) reverse-maps to `visibility`: `NONE` → `gm_only`, `OBSERVER` → `campaign`. Written via `flags.gmhub-vtt.visibility`, pushed on the next manual Push (or immediately when `autoPushOnUpdate` is on).
+- **Visibility ride-along.** Per-page eye icon (`page.ownership.default`) reverse-maps to `visibility`: `NONE` → `gm_only`, `OBSERVER` → `campaign`. Written via `flags.gmhub-vtt-bridge.visibility`, pushed on the next manual Push (or immediately when `autoPushOnUpdate` is on).
 
 ### Rules of engagement
 

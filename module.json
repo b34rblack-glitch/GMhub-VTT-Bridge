@@ -1,5 +1,5 @@
 {
-  "id": "gmhub-vtt",
+  "id": "gmhub-vtt-bridge",
   "title": "GMhub VTT Bridge",
   "description": "Two-way sync of journal entries between Foundry VTT and the GMhub web app.",
   "version": "0.5.0",

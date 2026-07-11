@@ -24,7 +24,7 @@ When the user asks for an "audit" or "review", deliver findings inline in the co
 |---|---|
 | Repo | `github.com/b34rblack-glitch/GMhub-VTT-Bridge` |
 | Sister repo | `github.com/b34rblack-glitch/GMhub-app` (web app; tracks this repo as Epic G; owns the `/api/v1` surface as Epic E) |
-| Module ID | `gmhub-vtt` |
+| Module ID | `gmhub-vtt-bridge` |
 | Current version | `0.5.0` |
 | Foundry compat | v11 minimum, v14 verified, v14 maximum |
 | System | `dnd5e` ≥ 3.0.0 |
@@ -92,7 +92,7 @@ No active release branch.
 | 🟡 Med | AgendaEditorDialog can't add/edit per-scene entity links | Existing scenes preserve `entities` on push; the editor has no UI to attach/detach links. Tracked as GMV-7. |
 | 🟡 Med | ApplicationV1 deprecation | ApplicationV1 still functional in v14 but officially deprecated. Sync dialog + editors are V1; migration deferred to v0.5+. |
 | 🟢 Low | Cross-campaign session journals can leak through Push | Switching campaigns leaves the old campaign's session journals in Foundry until the next Pull's orphan cleanup. |
-| 🟢 Low | Eye toggle is buffered, not immediate | Per `SCOPE.md` "Manual sync only." Eye click maps to `flags.gmhub-vtt.visibility` and waits for the next Push. |
+| 🟢 Low | Eye toggle is buffered, not immediate | Per `SCOPE.md` "Manual sync only." Eye click maps to `flags.gmhub-vtt-bridge.visibility` and waits for the next Push. |
 | 🟢 Low | i18n shim depends on Foundry's internal `_loc()` reading from `game.i18n.translations` | v0.4.3 mutates `translations` directly; the JS-level localize/format patches handle direct callers. If a future Foundry release moves `_loc()` to a different store, re-test on every Foundry minor. |
 | 🟢 Low | No automated tests | Foundry modules don't have an established test runner. |
 | 🟢 Low | Bearer token stored in world settings (GM-visible) | Acceptable for a single-GM workflow; revisit if the module ever supports multiple GMs sharing one world. |
@@ -102,7 +102,7 @@ No active release branch.
 - **Plain ES modules** — no bundler, no transpile.
 - **No external runtime deps** — keep `module.json#esmodules` to files in this repo.
 - **Foundry hook discipline** — register hooks in `main.js`'s `init`/`ready` blocks.
-- **Stable IDs via flags** — every journal we sync stores `flags.gmhub-vtt.externalId`. Re-syncs key off this; never look up by name.
+- **Stable IDs via flags** — every journal we sync stores `flags.gmhub-vtt-bridge.externalId`. Re-syncs key off this; never look up by name.
 - **Bearer token in `world` scope** — settings registered with `scope: "world"`, `config: true`; only the GM sees the input.
 - **Manual sync only.** Per `SCOPE.md`. (`autoPushOnUpdate` is the explicit opt-in escape hatch.)
 - **Foundry content-links** — emit raw `<a class="content-link" data-uuid="<page.uuid>" draggable="true">` markup directly. Foundry recognises this DOM shape on every supported version.
@@ -113,7 +113,7 @@ No active release branch.
 
 ```bash
 # Local install
-git clone https://github.com/b34rblack-glitch/GMhub-VTT-Bridge.git "$FOUNDRY_DATA/modules/gmhub-vtt"
+git clone https://github.com/b34rblack-glitch/GMhub-VTT-Bridge.git "$FOUNDRY_DATA/modules/gmhub-vtt-bridge"
 
 # Cut a release (manual)
 # 1. Bump module.json#version FIRST

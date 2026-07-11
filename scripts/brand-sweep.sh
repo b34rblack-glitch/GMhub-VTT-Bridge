@@ -20,7 +20,7 @@
 #   scripts/brand-sweep.sh            # human-readable, grouped report
 #   scripts/brand-sweep.sh --ci       # exit 1 if any ACTIONABLE leak remains
 #
-# Run it from the root of either repo (gmhub-app or gmhub-vtt).
+# Run it from the root of either repo (gmhub-app or gmhub-vtt-bridge).
 
 set -euo pipefail
 

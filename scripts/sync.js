@@ -1001,7 +1001,7 @@ export class SyncService {
     // One aggregate warning for any dirty orphans we couldn't auto-clean.
     if (skippedDirty.length) {
       ui.notifications?.warn(
-        `[gmhub-vtt] Skipped ${skippedDirty.length} stale session journal(s) with unpushed edits: ${skippedDirty.join(", ")}. Push or delete manually before next Pull.`
+        `[gmhub-vtt-bridge] Skipped ${skippedDirty.length} stale session journal(s) with unpushed edits: ${skippedDirty.join(", ")}. Push or delete manually before next Pull.`
       );
     }
   }

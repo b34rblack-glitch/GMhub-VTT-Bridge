@@ -44,7 +44,7 @@ import { SetupWizardDialog } from "./setup-wizard.js";
 
 // Canonical module id — matches module.json#id and is the namespace for
 // every flag, setting, and template path in this codebase.
-export const MODULE_ID = "gmhub-vtt";
+export const MODULE_ID = "gmhub-vtt-bridge";
 
 // -----------------------------------------------------------------------------
 // _refreshActiveSessionUI()
@@ -278,7 +278,7 @@ Hooks.once("ready", () => {
   });
   const sync = new SyncService(client);
   // Stash on the module record so macros + other modules can grab us
-  // via `game.modules.get("gmhub-vtt").api`.
+  // via `game.modules.get("gmhub-vtt-bridge").api`.
   game.modules.get(MODULE_ID).api = {
     client,
     sync,
@@ -412,12 +412,12 @@ Hooks.on("updateJournalEntry", async (entry, _change, _options, userId) => {
   if (!game.user.isGM) return;
   const { sync } = game.modules.get(MODULE_ID).api;
   try { await sync.markDirty(entry); } catch (err) {
-    console.warn("[gmhub-vtt] markDirty failed", err);
+    console.warn("[gmhub-vtt-bridge] markDirty failed", err);
   }
   // Opt-in auto-push escape hatch (see SCOPE.md "Manual sync only").
   if (!game.settings.get(MODULE_ID, "autoPushOnUpdate")) return;
   try { await sync.pushOne(entry); } catch (err) {
-    console.error("[gmhub-vtt] auto-push failed", err);
+    console.error("[gmhub-vtt-bridge] auto-push failed", err);
   }
 });
 
@@ -500,7 +500,7 @@ Hooks.on("updateJournalEntryPage", async (page, change, _options, userId) => {
   if (!isUserChange) return;
 
   try { await page.setFlag(MODULE_ID, "dirty", true); } catch (err) {
-    console.warn("[gmhub-vtt] page markDirty failed", err);
+    console.warn("[gmhub-vtt-bridge] page markDirty failed", err);
   }
   // Same auto-push opt-in as for entries. We push the *parent* entry
   // because the GMhub API is journal-shaped, not page-shaped.
@@ -509,6 +509,6 @@ Hooks.on("updateJournalEntryPage", async (page, change, _options, userId) => {
     const { sync } = game.modules.get(MODULE_ID).api;
     await sync.pushOne(page.parent);
   } catch (err) {
-    console.error("[gmhub-vtt] auto-push (page) failed", err);
+    console.error("[gmhub-vtt-bridge] auto-push (page) failed", err);
   }
 });

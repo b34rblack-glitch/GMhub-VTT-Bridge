@@ -1,6 +1,6 @@
 ---
 name: vtt-release-cut
-description: Use when cutting a new gmhub-vtt release. Walks the 4-step manual release ritual from CLAUDE.md §7 in the right order — bump module.json#version FIRST, then tag and push, then add docs/EPICS.md row. Encodes the v0.4.1 → v0.4.2 re-tagging lesson so it can't recur.
+description: Use when cutting a new gmhub-vtt-bridge release. Walks the 4-step manual release ritual from CLAUDE.md §7 in the right order — bump module.json#version FIRST, then tag and push, then add docs/EPICS.md row. Encodes the v0.4.1 → v0.4.2 re-tagging lesson so it can't recur.
 allowed-tools: Read, Edit, Bash, Grep
 ---
 

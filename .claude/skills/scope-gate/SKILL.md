@@ -4,7 +4,7 @@ description: Use BEFORE agreeing to implement any non-trivial feature in this Fo
 allowed-tools: Read, Grep, Bash
 ---
 
-# scope-gate (gmhub-vtt)
+# scope-gate (gmhub-vtt-bridge)
 
 CLAUDE.md §8: "Read SCOPE.md before agreeing to a feature. If a
 request would cross an out-of-scope line, surface that explicitly
@@ -40,7 +40,7 @@ change."
   reference files in this repo. No npm packages at runtime.
 - **No build step.** Plain ES modules. A request for "let's add
   Vite / esbuild / Rollup" is out of scope.
-- **Stable IDs via flags.** `flags.gmhub-vtt.externalId` is the
+- **Stable IDs via flags.** `flags.gmhub-vtt-bridge.externalId` is the
   join key on every synced journal. Re-syncs key off this, never
   by name.
 - **Bearer token in `world` scope.** Settings registered with

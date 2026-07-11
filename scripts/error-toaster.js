@@ -49,7 +49,7 @@ export function showFriendlyError(err) {
   // Non-API errors (network failure, bug in our own code, etc.) — log the
   // full object for debugging and surface a generic message to the GM.
   if (!(err instanceof GmhubApiError)) {
-    console.error("[gmhub-vtt] non-GmhubApiError surfaced", err);
+    console.error("[gmhub-vtt-bridge] non-GmhubApiError surfaced", err);
     ui.notifications.error(localize("GMHUB.Error.Generic", { message: err?.message ?? "unknown" }));
     return;
   }

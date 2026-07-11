@@ -10,7 +10,7 @@
 //   normalization live here so sync.js / ui.js never see a raw `fetch`.
 //
 // AUTH MODEL:
-//   Bearer token from world settings (`gmhub-vtt.apiKey`), injected on
+//   Bearer token from world settings (`gmhub-vtt-bridge.apiKey`), injected on
 //   every request. A 401 triggers exactly one re-read of the setting —
 //   so if the GM pastes a fresh token after a failure, the next call
 //   picks it up without a world reload.

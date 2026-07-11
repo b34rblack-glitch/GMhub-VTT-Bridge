@@ -25,7 +25,7 @@
    shown exactly once — losing it means starting over).
 5. **Install the module** in a fresh Foundry world: download `module.zip`
    from the latest GitHub Release and unpack it into
-   `$FOUNDRY_DATA/modules/gmhub-vtt`, or use Foundry's "Install Module
+   `$FOUNDRY_DATA/modules/gmhub-vtt-bridge`, or use Foundry's "Install Module
    from URL" with the manifest URL from the Release.
 6. **Module Settings**: paste `baseUrl` (the GMhub deployment URL),
    `apiKey` (the `gmhub_pat_…` token), `campaignId` (the UUID from step 2).
@@ -61,11 +61,11 @@
 
 12. **Edit one entity page** in Foundry (e.g., NPCs → "Goblin King").
     Save. Open `Hooks.callAll(\"updateJournalEntryPage\", …)` should have
-    set `flags.gmhub-vtt.dirty = true` on the page.
+    set `flags.gmhub-vtt-bridge.dirty = true` on the page.
 13. **Capture a quick note** during play (chat command, sidebar button,
-    or `game.modules.get("gmhub-vtt").api.sync.enqueueQuickNote("…")`).
+    or `game.modules.get("gmhub-vtt-bridge").api.sync.enqueueQuickNote("…")`).
 14. **Edit the GM Notes page** in the session journal.
-15. **Flip an entity's reveal** (set `flags.gmhub-vtt.revealedAt` via the
+15. **Flip an entity's reveal** (set `flags.gmhub-vtt-bridge.revealedAt` via the
     page macro, or trigger via the future Reveal UI).
 16. **Sync Dialog → Push**. Expect `pendingPushQueue` to drain (the
     quick note is consumed); the entity edit and reveal flip mirror to
