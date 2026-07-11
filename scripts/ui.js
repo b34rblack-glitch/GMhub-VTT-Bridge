@@ -75,6 +75,39 @@ function lifecycleAvailableFor(status) {
 // `GMHUB.Button.SessionStart` from the action name "start".
 function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 
+// -----------------------------------------------------------------------------
+// confirmViaDialog(DialogClass, props)
+// -----------------------------------------------------------------------------
+// The promise-wrapped confirm-gate idiom, extracted so every "pop a
+// confirm dialog, await the GM's yes/no" call site shares one
+// implementation instead of hand-rolling the same new Promise +
+// resolved-flag + close() monkey-patch. Constructs `DialogClass` with
+// `props` plus an injected `onConfirm` that resolves the promise `true`,
+// then patches `close()` so an X-out (title-bar close without confirming)
+// resolves `false`. Renders and returns a `Promise<boolean>`.
+//
+// Every dialog it drives already takes `({ ...props, onConfirm }, options={})`
+// and fires `this.onConfirm(); this.close();` from its confirm button, so
+// this is a clean drop-in. No third `options` param — no call site passes a
+// Foundry-options constructor arg, and the dialog constructors already
+// default `options={}` themselves.
+// -----------------------------------------------------------------------------
+function confirmViaDialog(DialogClass, props = {}) {
+  return new Promise((resolve) => {
+    // Track whether the confirm callback fired so the close handler can
+    // distinguish "user cancelled" from "user confirmed".
+    let resolved = false;
+    const dialog = new DialogClass({
+      ...props,
+      onConfirm: () => { resolved = true; resolve(true); }
+    });
+    // Monkey-patch close so an X-out falls through to "cancel".
+    const origClose = dialog.close.bind(dialog);
+    dialog.close = async (...args) => { if (!resolved) resolve(false); return origClose(...args); };
+    dialog.render(true);
+  });
+}
+
 // =============================================================================
 // SyncDialog
 // =============================================================================
@@ -167,22 +200,10 @@ export class SyncDialog extends Application {
     const campaignId = game.settings.get(MODULE_ID, "campaignId");
     const sessionId = game.settings.get(MODULE_ID, "activeSessionId");
     if (!campaignId || !sessionId) return;
-    // Confirm gate — wraps the confirm dialog in a promise so we can
-    // await it in this otherwise-linear flow.
+    // Confirm gate — the shared helper awaits the GM's yes/no in this
+    // otherwise-linear flow.
     if (confirm) {
-      const ok = await new Promise((resolve) => {
-        // Track whether the confirm callback fired so the close handler
-        // can distinguish "user cancelled" from "user confirmed".
-        let resolved = false;
-        const dialog = new LifecycleConfirmDialog({
-          action, onConfirm: () => { resolved = true; resolve(true); }
-        });
-        // Monkey-patch close to fall through to "cancel" if the user
-        // closed the dialog via the title-bar X without confirming.
-        const origClose = dialog.close.bind(dialog);
-        dialog.close = async (...args) => { if (!resolved) resolve(false); return origClose(...args); };
-        dialog.render(true);
-      });
+      const ok = await confirmViaDialog(LifecycleConfirmDialog, { action });
       if (!ok) return;
     }
     // Disable lifecycle buttons + show in-progress text.
@@ -256,19 +277,11 @@ export class SyncDialog extends Application {
       this._setStatus(game.i18n.localize("GMHUB.Notify.Pulling"));
       try {
         const result = await safeCall(() => this.sync.pullAll({
-          confirmOverwrite: (dirtyEntries) => new Promise((resolve) => {
-            let resolved = false;
-            const dialog = new ConfirmOverwriteDialog({
-              // Strip down to {name} to keep the dialog template simple.
-              dirtyEntries: dirtyEntries.map((e) => ({ name: e.name })),
-              onConfirm: () => { resolved = true; resolve(true); }
-            });
-            // Same callback-bag pattern Foundry uses for its own dialogs.
-            dialog.options.callbacks = dialog.options.callbacks ?? {};
-            // Patch close so an X-out resolves false.
-            const origClose = dialog.close.bind(dialog);
-            dialog.close = async (...args) => { if (!resolved) resolve(false); return origClose(...args); };
-            dialog.render(true);
+          // Return the helper's promise directly so pullAll's
+          // confirmOverwrite callback can await the GM's yes/no. Strip
+          // each dirty entry down to {name} to keep the dialog simple.
+          confirmOverwrite: (dirtyEntries) => confirmViaDialog(ConfirmOverwriteDialog, {
+            dirtyEntries: dirtyEntries.map((e) => ({ name: e.name }))
           })
         }));
         // Cancel returns a sentinel — show the cancelled status and skip the report.
@@ -292,17 +305,8 @@ export class SyncDialog extends Application {
         this._setStatus(game.i18n.localize("GMHUB.Notify.PushFailed"), preview.error);
         return;
       }
-      // Promise-wrapped preview confirm. Same pattern as the Pull guard.
-      const confirmed = await new Promise((resolve) => {
-        let resolved = false;
-        const dialog = new PushPreviewDialog({
-          preview,
-          onConfirm: () => { resolved = true; resolve(true); }
-        });
-        const origClose = dialog.close.bind(dialog);
-        dialog.close = async (...args) => { if (!resolved) resolve(false); return origClose(...args); };
-        dialog.render(true);
-      });
+      // Preview confirm gate via the shared helper. Same pattern as Pull.
+      const confirmed = await confirmViaDialog(PushPreviewDialog, { preview });
       if (!confirmed) { this._setStatus(game.i18n.localize("GMHUB.Notify.PushCancelled")); return; }
       this._setStatus(game.i18n.localize("GMHUB.Notify.Pushing"));
       try {
