@@ -1,10 +1,10 @@
 # GMhub VTT Bridge
 
-> Bring your [GMhub](https://www.gmhub.app/) campaign to the table — right inside Foundry VTT.
+> Bring your [GMhub](https://www.GMhub.app/) campaign to the table — right inside Foundry VTT.
 
 GMhub VTT Bridge syncs your GMhub campaign content into Foundry as journal entries, and sends your table-side work back when the session is done. Prep in GMhub, run the game in Foundry, and keep one source of truth for your campaign canon — no more copy-pasting notes between two apps.
 
-**A GMhub account is required.** Get one at [gmhub.app](https://www.gmhub.app/).
+**A GMhub account is required.** Get one at [GMhub.app](https://www.GMhub.app/).
 
 ---
 
@@ -28,7 +28,7 @@ The module syncs journal-shaped content only. It does not touch Foundry's Scenes
 |---|---|
 | Foundry VTT | v11 – v14 (verified on v14) |
 | Game system | D&D 5e (dnd5e) 3.0 or newer |
-| GMhub | An account and a campaign at [GMhub.app](https://www.gmhub.app/) |
+| GMhub | An account and a campaign at [GMhub.app](https://www.GMhub.app/) |
 
 Only the GM connects to GMhub — your players never need a GMhub account.
 
@@ -46,7 +46,7 @@ Enable **GMhub VTT Bridge** in your world's module settings.
 
 You'll need two things from GMhub:
 
-1. **A personal access token** — create one at **Account → API tokens** in GMhub. The token starts with `gmhub_pat_` and is shown only once, so copy it right away.
+1. **A personal access token** — create one at **Account → API tokens** in GMhub. The token starts with `GMhub_pat_` and is shown only once, so copy it right away.
 2. **Your campaign ID** — open your campaign in GMhub and copy the ID from the URL (`/campaigns/<id>`).
 
 Then in Foundry, go to **Game Settings → Configure Settings → GMhub VTT Bridge**:
