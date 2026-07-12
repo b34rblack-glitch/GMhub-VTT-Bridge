@@ -25,7 +25,7 @@ When the user asks for an "audit" or "review", deliver findings inline in the co
 | Repo | `github.com/b34rblack-glitch/GMhub-VTT-Bridge` |
 | Sister repo | `github.com/b34rblack-glitch/GMhub-app` (web app; tracks this repo as Epic G; owns the `/api/v1` surface as Epic E) |
 | Module ID | `gmhub-vtt-bridge` |
-| Current version | `0.5.0` |
+| Current version | `0.6.0` |
 | Foundry compat | v11 minimum, v14 verified, v14 maximum |
 | System | `dnd5e` ≥ 3.0.0 |
 | Manifest URL | `https://github.com/b34rblack-glitch/GMhub-VTT-Bridge/releases/latest/download/module.json` |
@@ -81,7 +81,7 @@ This module is coupled to `gmhub-app` through exactly one surface: the `/api/v1`
 
 > **Update this section at the start of every new release.**
 
-`v0.5.0` closed **GMV-11**, a sync-path robustness pass — three hardening changes with no wire-format change (so `docs/SISTER_REPO.md` is untouched): (1) `GmhubClient._request` now auto-retries a 429 exactly once — parsing `retryAfter` from the JSON body, sleeping when `<= 60s`, throwing immediately when `> 60s` — instead of only surfacing a toast; (2) the session recap window is a GM-configurable `sessionRecapCount` world setting (default 1, byte-identical to the old single-recap behavior) threaded through `computeSessionWindow`; (3) the ~130-line `pullAll` is split into `_pullEntities`/`_pullNotes`/`_pullSessions`/`_cleanupOrphanSessions`, and orphan cleanup is now **skipped when the session-list fetch fails** so a transient error can no longer wipe the local session archive. This release also backfills a `v0.4.6` row (0016 unified visibility) in `docs/EPICS.md` — the version had jumped 0.4.4 → 0.4.6 with no 0.4.5. Next on deck (recommendation): **GMV-7** (AgendaEditor entity-link UI) or **GMV-5** (ApplicationV2 migration).
+`v0.6.0` closed **GMV-12**, a consumer-side UI pass with no wire-format change (so `docs/SISTER_REPO.md` is untouched). Part 1: the copy-pasted promise-wrapped confirm-dialog idiom (construct dialog, track `resolved`, monkey-patch `close()` to resolve false, render) is extracted into one module-scope `confirmViaDialog(DialogClass, props)` helper in `ui.js`; all three call sites (lifecycle end, pull-overwrite, push) are rewritten on it and a provably-dead `dialog.options.callbacks` line is dropped. Part 2: a new `PrePushReviewDialog` **supersedes** `PushPreviewDialog` as the single Push confirm-gate — a grouped dirty-state dashboard (entities create/update, notes create/update, quick-note queue, per-session plan edits) with counts and click-through per-entry inspection (`fromUuidSync`, null-guarded), plus a **read-only visibility-drift** group. It is fed by an extended internal `previewPush()` shape (per-entry `uuid`; `sessionPlanJournals` → `[{name,uuid}]`; new `visibilityDrift` bucket); `total` is unchanged (drift excluded), so the `total==0` "nothing to push" empty state is byte-for-byte preserved. `PushPreviewDialog` + `templates/push-preview.hbs` + its CSS/i18n are retired. Drift compares *effective* Foundry ownership against the flag-implied ownership (reusing `computePageOwnership`), excluding OWNER-holders on both sides so GM-id churn can't false-positive; two documented edges (a human-set non-GM OWNER isn't flagged; a mid-session player-map change can list a page as drift) are accepted design tradeoffs, not bugs. Next on deck (recommendation): **GMV-7** (AgendaEditor entity-link UI) or **GMV-5** (ApplicationV2 migration).
 
 No active release branch.
 

@@ -163,7 +163,7 @@ Hooks.once("init", () => {
     `modules/${MODULE_ID}/templates/pick-session.hbs`,
     `modules/${MODULE_ID}/templates/confirm-overwrite.hbs`,
     `modules/${MODULE_ID}/templates/lifecycle-confirm.hbs`,
-    `modules/${MODULE_ID}/templates/push-preview.hbs`,
+    `modules/${MODULE_ID}/templates/pre-push-review.hbs`,
     `modules/${MODULE_ID}/templates/agenda-editor.hbs`,
     `modules/${MODULE_ID}/templates/player-map.hbs`,
     `modules/${MODULE_ID}/templates/visibility.hbs`,

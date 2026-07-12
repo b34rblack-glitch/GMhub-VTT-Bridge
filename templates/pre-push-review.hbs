@@ -1,0 +1,126 @@
+{{!--
+  templates/pre-push-review.hbs
+  ===========================================================================
+  GMhub VTT Bridge — PrePushReviewDialog body.
+
+  Rendered by `ui.js#PrePushReviewDialog`. The single confirm gate before
+  `pushAll` — a consolidated dirty-state dashboard grouping every pending
+  change with counts and per-entry rows, plus a read-only visibility-drift
+  group.
+
+  Interaction model:
+    - Entity / note / session-journal rows carry `data-action="open-doc"`
+      + `data-uuid`, opening the underlying Foundry page/journal on click.
+    - Quick-notes (a queue count), the session-plan field label, and the
+      drift rows are read-only (no click target). Drift rows show the page
+      name only.
+
+  Empty state (total==0) preserves the old PushPreviewDialog behaviour:
+  "nothing to push" copy + a disabled Confirm. Drift is intentionally NOT
+  rendered in the empty branch, so it only ever surfaces alongside real
+  pending work.
+--}}
+<div class="gmhub-pre-push-review">
+  {{#if empty}}
+    {{!-- Nothing to push: hide every group + disable Confirm below. --}}
+    <p class="gmhub-empty-state">{{localize "GMHUB.Dialog.PrePushReview.Empty"}}</p>
+  {{else}}
+    <p>{{localize "GMHUB.Dialog.PrePushReview.Body"}}</p>
+
+    {{!-- Entities to create — clickable rows open the local page. --}}
+    {{#if entitiesCreate.length}}
+      <section class="gmhub-review-group">
+        <h3>{{localize "GMHUB.Dialog.PrePushReview.EntitiesCreate"}} <span class="gmhub-review-count">{{entitiesCreate.length}}</span></h3>
+        <ul class="gmhub-review-list">
+          {{#each entitiesCreate}}
+            <li class="gmhub-review-row gmhub-review-clickable" data-action="open-doc" data-uuid="{{this.uuid}}"><code>{{this.kind}}</code> {{this.name}}</li>
+          {{/each}}
+        </ul>
+      </section>
+    {{/if}}
+
+    {{!-- Entities to update. --}}
+    {{#if entitiesUpdate.length}}
+      <section class="gmhub-review-group">
+        <h3>{{localize "GMHUB.Dialog.PrePushReview.EntitiesUpdate"}} <span class="gmhub-review-count">{{entitiesUpdate.length}}</span></h3>
+        <ul class="gmhub-review-list">
+          {{#each entitiesUpdate}}
+            <li class="gmhub-review-row gmhub-review-clickable" data-action="open-doc" data-uuid="{{this.uuid}}"><code>{{this.kind}}</code> {{this.name}}</li>
+          {{/each}}
+        </ul>
+      </section>
+    {{/if}}
+
+    {{!-- Notes to create. --}}
+    {{#if notesCreate.length}}
+      <section class="gmhub-review-group">
+        <h3>{{localize "GMHUB.Dialog.PrePushReview.NotesCreate"}} <span class="gmhub-review-count">{{notesCreate.length}}</span></h3>
+        <ul class="gmhub-review-list">
+          {{#each notesCreate}}
+            <li class="gmhub-review-row gmhub-review-clickable" data-action="open-doc" data-uuid="{{this.uuid}}">{{this.name}}</li>
+          {{/each}}
+        </ul>
+      </section>
+    {{/if}}
+
+    {{!-- Notes to update. --}}
+    {{#if notesUpdate.length}}
+      <section class="gmhub-review-group">
+        <h3>{{localize "GMHUB.Dialog.PrePushReview.NotesUpdate"}} <span class="gmhub-review-count">{{notesUpdate.length}}</span></h3>
+        <ul class="gmhub-review-list">
+          {{#each notesUpdate}}
+            <li class="gmhub-review-row gmhub-review-clickable" data-action="open-doc" data-uuid="{{this.uuid}}">{{this.name}}</li>
+          {{/each}}
+        </ul>
+      </section>
+    {{/if}}
+
+    {{!-- Session plans — the field label is read-only; each journal row
+         opens the underlying session journal on click. --}}
+    {{#if sessionPlanJournals.length}}
+      <section class="gmhub-review-group">
+        <h3>{{localize "GMHUB.Dialog.PrePushReview.SessionPlans"}} <span class="gmhub-review-count">{{sessionPlanJournals.length}}</span></h3>
+        {{#if sessionPlanLabel}}<p class="gmhub-review-fields">{{sessionPlanLabel}}</p>{{/if}}
+        <ul class="gmhub-review-list">
+          {{#each sessionPlanJournals}}
+            <li class="gmhub-review-row gmhub-review-clickable" data-action="open-doc" data-uuid="{{this.uuid}}">{{this.name}}</li>
+          {{/each}}
+        </ul>
+      </section>
+    {{/if}}
+
+    {{!-- Quick notes — a queue count with no per-entry document, so
+         read-only (no click target). --}}
+    {{#if quickNotes}}
+      <section class="gmhub-review-group">
+        <h3>{{localize "GMHUB.Dialog.PrePushReview.QuickNotes"}} <span class="gmhub-review-count">{{quickNotes}}</span></h3>
+        <p class="gmhub-review-readonly">{{localize "GMHUB.Dialog.PrePushReview.QuickNotesHint"}}</p>
+      </section>
+    {{/if}}
+
+    {{!-- Visibility drift — read-only. Surfaces local eye-toggle changes
+         that Push will NOT send back. Page name only, no click target. --}}
+    {{#if visibilityDrift.length}}
+      <section class="gmhub-review-group gmhub-review-drift">
+        <h3>{{localize "GMHUB.Dialog.PrePushReview.Drift"}} <span class="gmhub-review-count">{{visibilityDrift.length}}</span></h3>
+        <p class="gmhub-review-readonly">{{localize "GMHUB.Dialog.PrePushReview.DriftHint"}}</p>
+        <ul class="gmhub-review-list">
+          {{#each visibilityDrift}}
+            <li class="gmhub-review-row">{{this.name}}</li>
+          {{/each}}
+        </ul>
+      </section>
+    {{/if}}
+  {{/if}}
+
+  {{!-- Confirm is disabled when there's nothing to push so the GM can't
+       fire an empty Push. --}}
+  <footer class="gmhub-dialog-buttons">
+    <button type="button" data-action="cancel">
+      <i class="fas fa-times"></i> {{localize "GMHUB.Button.Cancel"}}
+    </button>
+    <button type="button" data-action="confirm" {{#if empty}}disabled{{/if}}>
+      <i class="fas fa-cloud-upload-alt"></i> {{localize "GMHUB.Dialog.PrePushReview.Confirm"}}
+    </button>
+  </footer>
+</div>

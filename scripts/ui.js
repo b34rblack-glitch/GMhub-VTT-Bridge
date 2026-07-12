@@ -14,7 +14,8 @@
 // CLASS INVENTORY:
 //   - SyncDialog              — main entry point: Ping, Pull, Push, lifecycle.
 //   - LifecycleConfirmDialog  — destructive-action confirm prompt.
-//   - PushPreviewDialog       — counts + journal names before Push commits.
+//   - PrePushReviewDialog     — grouped dirty-state dashboard + drift; the
+//                               single confirm gate before Push commits.
 //   - AgendaEditorDialog      — agenda/pinned scene + entity editor.
 //   - ConfirmOverwriteDialog  — "you have unpushed edits" Pull guard.
 //   - PickSessionDialog       — list-and-pick the active session.
@@ -74,6 +75,39 @@ function lifecycleAvailableFor(status) {
 // Capitalize first letter — used to build i18n keys like
 // `GMHUB.Button.SessionStart` from the action name "start".
 function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
+// -----------------------------------------------------------------------------
+// confirmViaDialog(DialogClass, props)
+// -----------------------------------------------------------------------------
+// The promise-wrapped confirm-gate idiom, extracted so every "pop a
+// confirm dialog, await the GM's yes/no" call site shares one
+// implementation instead of hand-rolling the same new Promise +
+// resolved-flag + close() monkey-patch. Constructs `DialogClass` with
+// `props` plus an injected `onConfirm` that resolves the promise `true`,
+// then patches `close()` so an X-out (title-bar close without confirming)
+// resolves `false`. Renders and returns a `Promise<boolean>`.
+//
+// Every dialog it drives already takes `({ ...props, onConfirm }, options={})`
+// and fires `this.onConfirm(); this.close();` from its confirm button, so
+// this is a clean drop-in. No third `options` param — no call site passes a
+// Foundry-options constructor arg, and the dialog constructors already
+// default `options={}` themselves.
+// -----------------------------------------------------------------------------
+function confirmViaDialog(DialogClass, props = {}) {
+  return new Promise((resolve) => {
+    // Track whether the confirm callback fired so the close handler can
+    // distinguish "user cancelled" from "user confirmed".
+    let resolved = false;
+    const dialog = new DialogClass({
+      ...props,
+      onConfirm: () => { resolved = true; resolve(true); }
+    });
+    // Monkey-patch close so an X-out falls through to "cancel".
+    const origClose = dialog.close.bind(dialog);
+    dialog.close = async (...args) => { if (!resolved) resolve(false); return origClose(...args); };
+    dialog.render(true);
+  });
+}
 
 // =============================================================================
 // SyncDialog
@@ -167,22 +201,10 @@ export class SyncDialog extends Application {
     const campaignId = game.settings.get(MODULE_ID, "campaignId");
     const sessionId = game.settings.get(MODULE_ID, "activeSessionId");
     if (!campaignId || !sessionId) return;
-    // Confirm gate — wraps the confirm dialog in a promise so we can
-    // await it in this otherwise-linear flow.
+    // Confirm gate — the shared helper awaits the GM's yes/no in this
+    // otherwise-linear flow.
     if (confirm) {
-      const ok = await new Promise((resolve) => {
-        // Track whether the confirm callback fired so the close handler
-        // can distinguish "user cancelled" from "user confirmed".
-        let resolved = false;
-        const dialog = new LifecycleConfirmDialog({
-          action, onConfirm: () => { resolved = true; resolve(true); }
-        });
-        // Monkey-patch close to fall through to "cancel" if the user
-        // closed the dialog via the title-bar X without confirming.
-        const origClose = dialog.close.bind(dialog);
-        dialog.close = async (...args) => { if (!resolved) resolve(false); return origClose(...args); };
-        dialog.render(true);
-      });
+      const ok = await confirmViaDialog(LifecycleConfirmDialog, { action });
       if (!ok) return;
     }
     // Disable lifecycle buttons + show in-progress text.
@@ -256,19 +278,11 @@ export class SyncDialog extends Application {
       this._setStatus(game.i18n.localize("GMHUB.Notify.Pulling"));
       try {
         const result = await safeCall(() => this.sync.pullAll({
-          confirmOverwrite: (dirtyEntries) => new Promise((resolve) => {
-            let resolved = false;
-            const dialog = new ConfirmOverwriteDialog({
-              // Strip down to {name} to keep the dialog template simple.
-              dirtyEntries: dirtyEntries.map((e) => ({ name: e.name })),
-              onConfirm: () => { resolved = true; resolve(true); }
-            });
-            // Same callback-bag pattern Foundry uses for its own dialogs.
-            dialog.options.callbacks = dialog.options.callbacks ?? {};
-            // Patch close so an X-out resolves false.
-            const origClose = dialog.close.bind(dialog);
-            dialog.close = async (...args) => { if (!resolved) resolve(false); return origClose(...args); };
-            dialog.render(true);
+          // Return the helper's promise directly so pullAll's
+          // confirmOverwrite callback can await the GM's yes/no. Strip
+          // each dirty entry down to {name} to keep the dialog simple.
+          confirmOverwrite: (dirtyEntries) => confirmViaDialog(ConfirmOverwriteDialog, {
+            dirtyEntries: dirtyEntries.map((e) => ({ name: e.name }))
           })
         }));
         // Cancel returns a sentinel — show the cancelled status and skip the report.
@@ -283,8 +297,9 @@ export class SyncDialog extends Application {
         this._setStatus(game.i18n.localize("GMHUB.Notify.PullFailed"), err.message ?? "");
       }
     });
-    // Push button. Two-stage: previewPush() to render counts, then
-    // PushPreviewDialog gates the actual pushAll() call.
+    // Push button. Two-stage: previewPush() to gather the dirty-state
+    // dashboard, then PrePushReviewDialog is the single confirm gate on
+    // the actual pushAll() call.
     html.find('[data-action="push"]').on("click", async () => {
       const preview = this.sync.previewPush();
       // Most common error short-circuit: no campaign bound.
@@ -292,17 +307,9 @@ export class SyncDialog extends Application {
         this._setStatus(game.i18n.localize("GMHUB.Notify.PushFailed"), preview.error);
         return;
       }
-      // Promise-wrapped preview confirm. Same pattern as the Pull guard.
-      const confirmed = await new Promise((resolve) => {
-        let resolved = false;
-        const dialog = new PushPreviewDialog({
-          preview,
-          onConfirm: () => { resolved = true; resolve(true); }
-        });
-        const origClose = dialog.close.bind(dialog);
-        dialog.close = async (...args) => { if (!resolved) resolve(false); return origClose(...args); };
-        dialog.render(true);
-      });
+      // Pre-push review dashboard is the single confirm gate (no double-
+      // confirm). total==0 opens it to the "nothing to push" empty state.
+      const confirmed = await confirmViaDialog(PrePushReviewDialog, { preview });
       if (!confirmed) { this._setStatus(game.i18n.localize("GMHUB.Notify.PushCancelled")); return; }
       this._setStatus(game.i18n.localize("GMHUB.Notify.Pushing"));
       try {
@@ -363,21 +370,31 @@ export class LifecycleConfirmDialog extends Application {
 }
 
 // =============================================================================
-// PushPreviewDialog
+// PrePushReviewDialog
 // =============================================================================
-// Renders a categorized count of what `pushAll` would do, so the GM
-// can sanity-check before committing. GMV-9 expanded this to list the
-// individual session journals that have dirty plan pages.
+// The pre-push review dashboard — the single confirm gate on Push
+// (supersedes the old PushPreviewDialog). Groups every pending change
+// (entities create/update, notes create/update, quick-note queue,
+// per-session plan edits) with counts and per-entry rows, plus a
+// read-only visibility-drift group. Document-backed rows (entities,
+// notes, session journals) open the underlying page/journal on click;
+// quick-notes, the session-plan field label, and drift rows are
+// read-only. Fed by `previewPush()` (see sync.js).
+//
+// total==0 preserves the old behaviour exactly: the dialog still opens
+// (no pre-dialog short-circuit) and renders the "nothing to push" empty
+// state with a disabled Confirm; drift is NOT shown in the empty branch,
+// so it only ever surfaces alongside real pending work.
 // =============================================================================
-export class PushPreviewDialog extends Application {
+export class PrePushReviewDialog extends Application {
   constructor({ preview = null, onConfirm = () => {} } = {}, options = {}) {
     super(options); this.preview = preview; this.onConfirm = onConfirm;
   }
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
-      id: "gmhub-push-preview", title: "Push preview",
-      template: `modules/${MODULE_ID}/templates/push-preview.hbs`,
-      width: 520, height: "auto", classes: ["gmhub-push-preview-dialog"]
+      id: "gmhub-pre-push-review", title: "Pre-push review",
+      template: `modules/${MODULE_ID}/templates/pre-push-review.hbs`,
+      width: 560, height: "auto", classes: ["gmhub-pre-push-review-dialog"]
     });
   }
   getData() {
@@ -391,6 +408,7 @@ export class PushPreviewDialog extends Application {
     if (sp.pinned) sessionPlanFields.push("pinned");
     return {
       // Empty preview triggers the "nothing to push" branch in the template.
+      // total EXCLUDES drift, so a drift-only world still reads as empty.
       empty: (p.total ?? 0) === 0,
       entitiesCreate: p.entities?.create ?? [],
       entitiesUpdate: p.entities?.update ?? [],
@@ -400,13 +418,28 @@ export class PushPreviewDialog extends Application {
       // null when no fields are set so the template can {{#if}} cleanly.
       sessionPlanLabel: sessionPlanFields.length ? sessionPlanFields.join(", ") : null,
       sessionPlanJournals: p.sessionPlanJournals ?? [],
-      quickNotes: p.quickNotes ?? 0
+      quickNotes: p.quickNotes ?? 0,
+      // Read-only bucket; the template only renders it in the non-empty branch.
+      visibilityDrift: p.visibilityDrift ?? []
     };
   }
   activateListeners(html) {
     super.activateListeners(html);
     html.find('[data-action="cancel"]').on("click", () => this.close());
     html.find('[data-action="confirm"]').on("click", () => { this.onConfirm(); this.close(); });
+    // Click-through: open the underlying Foundry document for a row that
+    // carries a uuid. fromUuidSync is null-guarded because the doc may have
+    // been deleted between preview and click.
+    html.find('[data-action="open-doc"]').on("click", (evt) => {
+      const uuid = evt.currentTarget.dataset.uuid;
+      if (!uuid) return;
+      const doc = fromUuidSync(uuid);
+      if (!doc) return;
+      // A JournalEntryPage opens its parent journal focused on the page;
+      // a JournalEntry (session journal) opens its own sheet.
+      if (doc.documentName === "JournalEntryPage") doc.parent?.sheet?.render(true, { pageId: doc.id });
+      else doc.sheet?.render(true);
+    });
   }
 }
 

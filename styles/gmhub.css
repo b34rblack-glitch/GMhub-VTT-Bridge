@@ -13,7 +13,7 @@
  *   1. Journal-directory sync button
  *   2. SyncDialog layout (info / actions / lifecycle / status)
  *   3. LifecycleConfirmDialog + destructive-action button
- *   4. PushPreviewDialog tables + buttons
+ *   4. PrePushReviewDialog grouped dashboard + buttons
  *   5. Generic empty-state styling
  *   6. AgendaEditorDialog grid layout
  *   7. SyncDialog status + result panels
@@ -94,29 +94,81 @@
   color: white;
 }
 
-/* --- 4. PushPreviewDialog -------------------------------------------------
- * Two-column counts table: left = label, right = numeric count. */
-.gmhub-push-preview-counts {
-  width: 100%;
-  margin: 8px 0;
-  border-collapse: collapse;
+/* --- 4. PrePushReviewDialog -----------------------------------------------
+ * Grouped dirty-state dashboard shown before Push commits. Each bucket is a
+ * <section> with a heading + count badge and a list of per-entry rows;
+ * document-backed rows are clickable to open the underlying page/journal. */
+.gmhub-pre-push-review .gmhub-review-group {
+  margin: 10px 0;
 }
 
-/* Left-aligned label column header. */
-.gmhub-push-preview-counts th {
-  text-align: left;
-  padding: 4px 8px;
+/* Group heading: label + inline count badge on the same baseline. */
+.gmhub-pre-push-review .gmhub-review-group h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+/* Small pill count badge next to each group heading. */
+.gmhub-pre-push-review .gmhub-review-count {
+  font-size: 0.8em;
   font-weight: 600;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.15);
 }
 
-/* Right-aligned numeric column for easy column scanning. */
-.gmhub-push-preview-counts td {
-  padding: 4px 8px;
-  text-align: right;
+/* Flat list of per-entry rows. */
+.gmhub-pre-push-review .gmhub-review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Per-entry row. */
+.gmhub-pre-push-review .gmhub-review-row {
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+/* Clickable rows (document-backed) get a pointer + hover tint. */
+.gmhub-pre-push-review .gmhub-review-clickable {
+  cursor: pointer;
+}
+
+.gmhub-pre-push-review .gmhub-review-clickable:hover {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+/* Session-plan field label — read-only, dimmed + italic. */
+.gmhub-pre-push-review .gmhub-review-fields {
+  margin: 0 0 4px;
+  font-size: 12px;
+  opacity: 0.75;
+  font-style: italic;
+}
+
+/* Read-only hint line (quick notes, drift). */
+.gmhub-pre-push-review .gmhub-review-readonly {
+  margin: 0 0 4px;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+/* Amber count badge on the visibility-drift group so it reads as a
+ * caution ("won't be pushed") rather than pending work. */
+.gmhub-pre-push-review .gmhub-review-drift .gmhub-review-count {
+  background: rgba(245, 158, 11, 0.2);
 }
 
 /* Confirm/cancel buttons aligned to the right like every other dialog. */
-.gmhub-push-preview-dialog .gmhub-dialog-buttons {
+.gmhub-pre-push-review-dialog .gmhub-dialog-buttons {
   display: flex;
   justify-content: flex-end;
   gap: 6px;
