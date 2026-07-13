@@ -508,6 +508,77 @@ export function renderAgendaHtml(agenda) { return agendaHtml(agenda); }
 export function renderPinnedHtml(pinned) { return pinnedHtml(pinned); }
 
 // -----------------------------------------------------------------------------
+// notifyClickable(message, onClick)
+// -----------------------------------------------------------------------------
+// Show a *permanent* warning toast whose body, when clicked, runs
+// `onClick`. Foundry exposes no official "clickable notification" API, so
+// we resolve the rendered <li> ourselves and bind a handler:
+//   - v13+ (the verified v14 target): `warn()` returns a Notification
+//     object carrying `.element` (the <li>).
+//   - v11/v12 fallback: `warn()` returns a numeric id; the matching <li>
+//     appears under `#notifications` with a `[data-id="<id>"]` attribute.
+// The <li> is created asynchronously from the notification queue, so we
+// poll a few animation frames before binding.
+//
+// Two hard requirements (both defended below):
+//   (a) Clicking the close control must NOT fire `onClick` — only the body
+//       opens the target. Otherwise dismissing the toast would open it.
+//   (b) Degrade gracefully: if the <li> never resolves (e.g. an unverified
+//       v11/v12 DOM shape), the toast simply stays non-clickable. This
+//       helper must never throw.
+// -----------------------------------------------------------------------------
+export function notifyClickable(message, onClick) {
+  // Permanent so the toast survives past the ~5s auto-dismiss until the GM
+  // acts on it. If notifications aren't ready there's nothing to bind.
+  const result = ui.notifications?.warn?.(message, { permanent: true });
+  if (result == null) return;
+
+  const CLOSE_SELECTOR = ".close, [data-action='close'], i.fa-times, .fa-xmark";
+  const MAX_FRAMES = 10;
+  let frames = 0;
+
+  const resolveElement = () => {
+    // v13+: Notification object with an `.element` (HTMLElement or jQuery).
+    if (typeof result === "object" && result.element) {
+      const el = result.element;
+      if (el instanceof HTMLElement) return el;
+      // jQuery-wrapped fallback.
+      if (el[0] instanceof HTMLElement) return el[0];
+      return null;
+    }
+    // v11/v12: numeric id → look the <li> up by data-id.
+    const id = (typeof result === "object") ? result.id : result;
+    if (id == null || typeof document === "undefined") return null;
+    return document.querySelector(`#notifications [data-id="${id}"]`);
+  };
+
+  const bind = () => {
+    try {
+      const li = resolveElement();
+      if (li) {
+        li.classList.add("gmhub-clickable");
+        li.addEventListener("click", (ev) => {
+          // (a) Ignore clicks on the close control so dismiss ≠ open.
+          if (ev.target?.closest?.(CLOSE_SELECTOR)) return;
+          // Never let a handler error escape into Foundry's UI loop.
+          try { onClick?.(); } catch (_err) { /* swallow */ }
+        });
+        return;
+      }
+      // (b) Not rendered yet — retry a few frames, then give up quietly.
+      if (frames++ < MAX_FRAMES && typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(bind);
+      }
+    } catch (_err) {
+      // DOM shape we didn't anticipate — leave the toast non-clickable.
+    }
+  };
+
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(bind);
+  else bind();
+}
+
+// -----------------------------------------------------------------------------
 // pinnedHtml(pinned)
 // -----------------------------------------------------------------------------
 // Render the Pinned page body for a session. Each pin is a card:
@@ -908,11 +979,16 @@ export class SyncService {
     // entities and notes have contributed to `unmapped`.
     if (unmapped.size > 0) {
       const list = Array.from(unmapped).join(", ");
-      ui.notifications?.warn(
+      // Clickable toast: same warning text, but clicking the body opens the
+      // player-mapping resolver so the GM can fix the mappings in place. We
+      // reach the resolver through the runtime module API (not a static
+      // import of ui.js) to avoid a ui.js ↔ sync.js circular import.
+      notifyClickable(
         game.i18n.format("GMHUB.Warn.UnmappedRecipients", {
           count: unmapped.size,
           ids: list
-        })
+        }),
+        () => game.modules.get(MODULE_ID).api?.openPlayerMap?.()
       );
     }
 

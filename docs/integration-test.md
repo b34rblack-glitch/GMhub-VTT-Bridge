@@ -107,6 +107,43 @@
     routine release verification). Expect a 429 toast with a
     `retry-after` value.
 
+## Player-mapping resolver (GMV-4, v0.6.0)
+
+Run on a **v13/v14** Foundry (the verified target for the clickable toast).
+Have a campaign with ≥3 players and a couple of non-GM Foundry users.
+
+22. **Open the resolver** (Module Settings → *Configure player mapping*, or
+    `game.modules.get("gmhub-vtt-bridge").api.openPlayerMap()`). Expect one
+    row per GMhub player with a **Status** column. A player mapped to an
+    existing Foundry user reads `Mapped`; an unmapped player reads
+    `Unmapped`; a player mapped to a since-deleted Foundry user reads
+    `Stale`. A `playerMap` id whose GMhub member no longer appears in the
+    member list renders as a `Departed` row.
+23. **Auto-suggest.** For an unmapped player whose GMhub `display_name`
+    uniquely matches a Foundry `user.name` (case-insensitive), that user is
+    **pre-selected** and the row carries a `Suggested` badge. Confirm nothing
+    is written to settings yet. (Two identically-named Foundry users → no
+    pre-selection.) **Save** with the suggestion untouched → the mapping
+    persists (that Save is the confirmation).
+24. **Round-trip.** With a **stale** row (and a **departed+stale** row)
+    present, change and Save an *unrelated* row. Reopen the resolver → the
+    stale / departed-stale keys are still in `playerMap` (the synthetic
+    "unknown user (…)" option round-tripped them).
+25. **Clear.** Click **Clear** on a stale/departed row → its select empties.
+    Save → exactly that key is removed; every other mapping survives.
+26. **Clickable toast.** Run a **Pull** that references ≥1 unmapped
+    recipient. The warning toast is **permanent** and shows a pointer
+    cursor; clicking its body (not the ✕ close control) opens the resolver.
+    A Pull with zero unmapped recipients shows no toast.
+27. **Wizard mapping.** Run the setup wizard to Step 3 → *Configure player
+    mapping*. The dialog loads the member list for the wizard's (not-yet-
+    finalized) campaign, and Saving flows the mapping into the wizard's
+    saved config on Finish.
+28. **Re-Pull applies visibility.** After resolving a previously-unmapped
+    recipient of a `shared` page, **Pull again** → that page now grants the
+    mapped Foundry user OBSERVER (the resolver's Save hint reminded you to
+    re-Pull; ownership is applied inside the Pull pipeline, not on Save).
+
 ## Recording the run
 
 When the seventeen steps pass, record in the PR description:
