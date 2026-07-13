@@ -186,6 +186,45 @@ function _findEntityPageById(entityId) {
 }
 
 // -----------------------------------------------------------------------------
+// listPulledEntities()
+// -----------------------------------------------------------------------------
+// Enumerate every already-pulled entity across the six kind-journals
+// (NPCs, Locations, ...) into a grouped, picker-friendly shape. Same
+// journal/page traversal as `_findEntityPageById`, but collecting rather
+// than searching. Used by the AgendaEditorDialog entity-link picker
+// (GMV-7) to offer only entities that actually exist in this world.
+//
+// Returns: [{ kind, label, entities: [{ id, name }] }] — one group per
+// kind-journal that has >= 1 page carrying an `externalId` flag. `id` is
+// that externalId (the GMhub-side primary key entity chips/pins reference);
+// pages with no externalId (locally-created, never-pushed) are excluded,
+// and a group with zero referenceable pages is omitted entirely.
+//
+// Read-only: never mutates a flag, never touches the network.
+// -----------------------------------------------------------------------------
+export function listPulledEntities() {
+  const groups = [];
+  for (const [kind, label] of Object.entries(KIND_JOURNAL_NAMES)) {
+    const journal = game.journal.contents.find(
+      (e) => e.getFlag(MODULE_ID, FLAG_KIND) === kind
+    );
+    if (!journal) continue;
+    const entities = [];
+    for (const page of journal.pages.contents) {
+      const id = page.getFlag(MODULE_ID, FLAG_EXTERNAL_ID);
+      // Skip locally-created pages that were never pushed — they have no
+      // stable id to reference, so a chip/pin pointing at them can't resolve.
+      if (!id) continue;
+      entities.push({ id, name: page.name });
+    }
+    // Omit kinds with nothing referenceable so the picker doesn't render
+    // empty optgroups.
+    if (entities.length) groups.push({ kind, label, entities });
+  }
+  return groups;
+}
+
+// -----------------------------------------------------------------------------
 // _escapeHtml(s)
 // -----------------------------------------------------------------------------
 // Minimal entity-escape so user-supplied text (NPC names, scene titles,
