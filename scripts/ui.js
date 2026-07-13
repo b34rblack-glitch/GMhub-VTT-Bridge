@@ -675,7 +675,10 @@ export class PlayerMapDialog extends FormApplication {
   // doesn't silently drop them (see getData / union-rendering).
   // ---------------------------------------------------------------------------
   async _refresh() {
-    const campaignId = game.settings.get(MODULE_ID, "campaignId");
+    // Prefer an explicit campaignId override (the setup wizard opens this
+    // dialog before the campaign is finalized in world settings); fall back
+    // to the world setting for the standalone Module-Settings flow.
+    const campaignId = this.options.campaignId ?? game.settings.get(MODULE_ID, "campaignId");
     if (!campaignId) {
       this.loading = false;
       this.error = game.i18n.localize("GMHUB.PickSession.NoCampaign");
@@ -836,6 +839,10 @@ export class PlayerMapDialog extends FormApplication {
     }
     await game.settings.set(MODULE_ID, "playerMap", next);
     ui.notifications?.info(game.i18n.localize("GMHUB.Notify.MappingSaved"));
+    // Notify an embedding caller (the setup wizard) so it can record the
+    // mapping into its atomic stepData. No-op for the standalone
+    // Module-Settings / api.openPlayerMap() flow (no onSubmit provided).
+    this.options.onSubmit?.(next);
   }
 }
 
