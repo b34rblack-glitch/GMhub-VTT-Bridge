@@ -668,3 +668,59 @@ a.gmhub-pinned-name:hover {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* --- Player-mapping resolver (PlayerMapDialog) ----------------------------
+ * Status badges for the GMhub-player → Foundry-user resolver. Each badge
+ * pairs a color with a text label (a11y non-color cue) — colour alone is
+ * never the signal. Pill shape follows the existing .gmhub-mention /
+ * .gmhub-scene-entity-chip convention (border-radius:999px).
+ */
+.gmhub-player-map-status {
+  white-space: nowrap;
+}
+
+.gmhub-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  margin-right: 4px;
+  border-radius: 999px;
+  font-size: 0.8em;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+/* mapped = green (a valid, live Foundry user behind the mapping). */
+.gmhub-badge-mapped {
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+}
+
+/* unmapped / suggested = amber (needs GM attention; suggested is a
+ * pre-selected guess the GM still has to confirm by Saving). */
+.gmhub-badge-unmapped,
+.gmhub-badge-suggested {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+}
+
+/* stale / departed = red (a mapping pointing at a user that no longer
+ * exists, or a player that left the GMhub campaign). */
+.gmhub-badge-stale,
+.gmhub-badge-departed {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
+/* Shared cursor affordance: the per-row Clear control and the clickable
+ * Pull-time toast (sync.js#notifyClickable) both opt in via this class. */
+.gmhub-clickable {
+  cursor: pointer;
+}
+
+.gmhub-player-map-hint {
+  margin: 8px 0 0;
+  font-size: 0.85em;
+  color: var(--color-text-dark-secondary, #666);
+}
