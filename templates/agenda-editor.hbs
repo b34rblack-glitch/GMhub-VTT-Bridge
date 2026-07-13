@@ -68,13 +68,13 @@
           {{!-- Per-row control column. CSS makes this span both rows
                of the grid so the buttons stack vertically. --}}
           <div class="gmhub-agenda-controls">
-            <button type="button" data-action="up" data-idx="{{this._idx}}" title="Move up">
+            <button type="button" data-action="up" data-idx="{{this._idx}}" title="Move up" {{#if ../pending}}disabled{{/if}}>
               <i class="fas fa-arrow-up"></i>
             </button>
-            <button type="button" data-action="down" data-idx="{{this._idx}}" title="Move down">
+            <button type="button" data-action="down" data-idx="{{this._idx}}" title="Move down" {{#if ../pending}}disabled{{/if}}>
               <i class="fas fa-arrow-down"></i>
             </button>
-            <button type="button" data-action="remove" data-idx="{{this._idx}}" title="Remove">
+            <button type="button" data-action="remove" data-idx="{{this._idx}}" title="Remove" {{#if ../pending}}disabled{{/if}}>
               <i class="fas fa-trash"></i>
             </button>
           </div>
@@ -88,17 +88,17 @@
   {{/if}}
 
   {{!-- Add row — handler injects a kind-appropriate empty record. --}}
-  <button type="button" data-action="add" class="gmhub-agenda-add">
+  <button type="button" data-action="add" class="gmhub-agenda-add" {{#if pending}}disabled{{/if}}>
     <i class="fas fa-plus"></i> {{localize "GMHUB.Dialog.AgendaEditor.Add"}}
   </button>
 
   {{!-- Cancel discards in-memory edits; Save persists them, re-renders
        the page HTML, and marks the page dirty for the next Push. --}}
   <footer class="gmhub-dialog-buttons">
-    <button type="button" data-action="cancel">
+    <button type="button" data-action="cancel" {{#if pending}}disabled{{/if}}>
       <i class="fas fa-times"></i> {{localize "GMHUB.Button.Cancel"}}
     </button>
-    <button type="button" data-action="save">
+    <button type="button" data-action="save" {{#if pending}}disabled{{/if}}>
       <i class="fas fa-save"></i> {{localize "GMHUB.Dialog.AgendaEditor.Save"}}
     </button>
   </footer>

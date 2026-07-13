@@ -422,6 +422,9 @@ export class AgendaEditorDialog extends Application {
   constructor({ page, kind } = {}, options = {}) {
     super(options);
     this.page = page; this.kind = kind;
+    // Saving-in-progress guard so a double-click can't fire two
+    // overlapping setFlag/update sequences (mirrors VisibilityDialog).
+    this.pending = false;
     // Look up the right flag key (`agendaItems` or `pinnedRefs`) so
     // both modes can use the same load/save path.
     const flagKey = SESSION_PLAN_FLAGS[kind];
@@ -451,6 +454,8 @@ export class AgendaEditorDialog extends Application {
       // {{#if isAgenda}} on directly.
       isAgenda: this.kind === "agenda",
       isPinned: this.kind === "pinned",
+      // Disables save/cancel/add/row buttons while a Save is in flight.
+      pending: this.pending,
       // Inject the row index so per-row buttons can find their item again.
       items: this.items.map((item, idx) => ({ ...item, _idx: idx }))
     };
@@ -501,6 +506,10 @@ export class AgendaEditorDialog extends Application {
     // Save: persist the raw array to the flag, re-render the display
     // HTML, mark dirty (so the next Push includes the change), close.
     html.find('[data-action="save"]').on("click", async () => {
+      // Re-entrancy guard so a double-click doesn't fire two overlapping
+      // setFlag/update sequences.
+      if (this.pending) return;
+      this.pending = true; this.render(false);
       try {
         const flagKey = SESSION_PLAN_FLAGS[this.kind];
         // Strip the row-index helper before persisting.
@@ -512,6 +521,8 @@ export class AgendaEditorDialog extends Application {
         ui.notifications.info(game.i18n.localize("GMHUB.Notify.AgendaSaved"));
         this.close();
       } catch (err) {
+        // Reset the busy flag so the Save button comes back to life.
+        this.pending = false; this.render(false);
         ui.notifications.error(err.message ?? String(err));
       }
     });
