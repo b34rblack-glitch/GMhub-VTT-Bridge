@@ -81,7 +81,7 @@ This module is coupled to `gmhub-app` through exactly one surface: the `/api/v1`
 
 > **Update this section at the start of every new release.**
 
-`v0.5.0` closed **GMV-11**, a sync-path robustness pass — three hardening changes with no wire-format change (so `docs/SISTER_REPO.md` is untouched): (1) `GmhubClient._request` now auto-retries a 429 exactly once — parsing `retryAfter` from the JSON body, sleeping when `<= 60s`, throwing immediately when `> 60s` — instead of only surfacing a toast; (2) the session recap window is a GM-configurable `sessionRecapCount` world setting (default 1, byte-identical to the old single-recap behavior) threaded through `computeSessionWindow`; (3) the ~130-line `pullAll` is split into `_pullEntities`/`_pullNotes`/`_pullSessions`/`_cleanupOrphanSessions`, and orphan cleanup is now **skipped when the session-list fetch fails** so a transient error can no longer wipe the local session archive. This release also backfills a `v0.4.6` row (0016 unified visibility) in `docs/EPICS.md` — the version had jumped 0.4.4 → 0.4.6 with no 0.4.5. Next on deck (recommendation): **GMV-7** (AgendaEditor entity-link UI) or **GMV-5** (ApplicationV2 migration).
+`v0.6.0` closed **GMV-7**, an Agenda Editor hardening-then-feature pass over `AgendaEditorDialog` (`scripts/ui.js`) and `templates/agenda-editor.hbs`, with no wire-format change (so `docs/SISTER_REPO.md` and the `/api/v1` contract are untouched — Save already persisted the whole row object to the structured `agendaItems`/`pinnedRefs` flags). Hardening first: (1) a `pending` re-entrancy guard on Save (mirroring `VisibilityDialog`) so a double-click can't fire two overlapping `setFlag`/`update` sequences; (2) the up/down/remove row buttons gain localized `aria-label`s (their `<i>` `aria-hidden`) and 44px touch targets. Then the feature on that hardened base: a per-scene entity-link picker — an "Add entity" button opens a kind-grouped `<select>` of **already-pulled** entities and renders removable chips against the canonical `entities:[{id,name,entityType}]` (camelCase) shape, sourced by a new exported `listPulledEntities()` in `sync.js`; and the pinned row's brittle free-text `entity_id`/`entity_type` inputs are replaced by the same single-select picker (writing the snake `entity_id`/`entity_type`/`name` shape, with a "(not pulled)" fallback option that preserves a stored link that isn't in the current pull). Both round-trip through Push/Pull and render as content-links. Next on deck (recommendation): **GMV-5** (ApplicationV2 migration).
 
 No active release branch.
 
@@ -89,7 +89,6 @@ No active release branch.
 
 | Priority | Issue | Notes |
 |---|---|---|
-| 🟡 Med | AgendaEditorDialog can't add/edit per-scene entity links | Existing scenes preserve `entities` on push; the editor has no UI to attach/detach links. Tracked as GMV-7. |
 | 🟡 Med | ApplicationV1 deprecation | ApplicationV1 still functional in v14 but officially deprecated. Sync dialog + editors are V1; migration deferred to v0.5+. |
 | 🟢 Low | Cross-campaign session journals can leak through Push | Switching campaigns leaves the old campaign's session journals in Foundry until the next Pull's orphan cleanup. |
 | 🟢 Low | Eye toggle is buffered, not immediate | Per `SCOPE.md` "Manual sync only." Eye click maps to `flags.gmhub-vtt-bridge.visibility` and waits for the next Push. |
