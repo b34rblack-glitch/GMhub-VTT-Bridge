@@ -1,17 +1,24 @@
 {{!--
   templates/player-map.hbs
   ===========================================================================
-  GMhub VTT Bridge — PlayerMapDialog body.
+  GMhub VTT Bridge — PlayerMapDialog body (the player-mapping resolver).
 
-  Rendered by `ui.js#PlayerMapDialog` (a FormApplication). Lets the GM
-  associate each GMhub player user id with a Foundry user id. The
-  `shared` visibility path in sync.js uses this mapping to apply
-  per-user JournalEntryPage ownership; without a mapping, those
-  recipients silently get skipped and the GM sees a one-time warning
-  at Pull time.
+  Rendered by `ui.js#PlayerMapDialog` (a FormApplication). Lists every
+  GMhub campaign player with a per-row status badge and lets the GM
+  associate each with a Foundry user. The `shared` visibility path in
+  sync.js uses this mapping to apply per-user JournalEntryPage ownership;
+  without a mapping, those recipients silently get skipped and the GM
+  sees a (now clickable) warning at Pull time.
+
+  All status derivation lives in getData() — the template only branches
+  on precomputed booleans (isMapped / isUnmapped / isStale / isDeparted /
+  isSuggested) and never computes status itself.
 
   Four-way state mirrors PickSessionDialog: loading / error / empty /
   populated. Submit is wired by FormApplication itself (button[type=submit]).
+  Badges / departed / synthetic rows live ONLY in the populated branch —
+  the error branch renders just a Refresh button (no <form>) so a failed
+  member fetch can never wipe playerMap via an empty-formData Save.
 --}}
 <div class="gmhub-player-map">
   {{!-- Explanatory copy: why this dialog exists. --}}
@@ -22,7 +29,8 @@
     <p><em>{{localize "GMHUB.Dialog.PlayerMap.Loading"}}</em></p>
   {{else if error}}
     {{!-- State branch #2: load failed. Show the message + a Refresh
-         button so the GM can retry without closing the dialog. --}}
+         button so the GM can retry without closing the dialog. No <form>
+         here — an empty-formData submit would wipe the mapping. --}}
     <p class="gmhub-error">{{error}}</p>
     <button type="button" data-action="refresh">
       <i class="fas fa-sync"></i> {{localize "GMHUB.Button.Refresh"}}
@@ -38,6 +46,7 @@
         <thead>
           <tr>
             <th>{{localize "GMHUB.Dialog.PlayerMap.GmhubColumn"}}</th>
+            <th>{{localize "GMHUB.Dialog.PlayerMap.StatusColumn"}}</th>
             <th>{{localize "GMHUB.Dialog.PlayerMap.FoundryColumn"}}</th>
           </tr>
         </thead>
@@ -50,6 +59,25 @@
                 <span class="gmhub-player-name">{{this.display_name}}</span>
                 <code class="gmhub-player-id">{{this.user_id}}</code>
               </td>
+              {{!-- Status column: every badge pairs color with a text
+                   label (a11y non-color cue). mapped/unmapped/stale are
+                   mutually exclusive; departed + suggested are additive
+                   flags a row can also carry. --}}
+              <td class="gmhub-player-map-status">
+                {{#if this.isStale}}
+                  <span class="gmhub-badge gmhub-badge-stale">{{localize "GMHUB.Dialog.PlayerMap.Status.Stale"}}</span>
+                {{else if this.isMapped}}
+                  <span class="gmhub-badge gmhub-badge-mapped">{{localize "GMHUB.Dialog.PlayerMap.Status.Mapped"}}</span>
+                {{else}}
+                  <span class="gmhub-badge gmhub-badge-unmapped">{{localize "GMHUB.Dialog.PlayerMap.Status.Unmapped"}}</span>
+                {{/if}}
+                {{#if this.isDeparted}}
+                  <span class="gmhub-badge gmhub-badge-departed">{{localize "GMHUB.Dialog.PlayerMap.Status.Departed"}}</span>
+                {{/if}}
+                {{#if this.isSuggested}}
+                  <span class="gmhub-badge gmhub-badge-suggested">{{localize "GMHUB.Dialog.PlayerMap.Status.Suggested"}}</span>
+                {{/if}}
+              </td>
               <td>
                 {{!-- Select name `player.<gmhub_id>` so the
                      _updateObject handler can filter on that prefix
@@ -61,12 +89,38 @@
                   {{#each this.choices}}
                     <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
                   {{/each}}
+                  {{!-- Synthetic selected option for a stale/departed-stale
+                       mapping: its Foundry user no longer exists, so no
+                       real <option> matches. Without this the select would
+                       default to empty and the next Save would silently
+                       drop the key. Carries the raw stored id so the value
+                       round-trips; only an explicit Clear removes it. --}}
+                  {{#if this.synthetic}}
+                    <option value="{{this.synthetic.id}}" selected>{{this.synthetic.label}}</option>
+                  {{/if}}
                 </select>
+                {{!-- Per-row Clear for stale/departed rows: empties the
+                     select so an explicit Save removes the key. --}}
+                {{#if this.isStale}}
+                  <button type="button" class="gmhub-clickable" data-action="clear-row" data-user-id="{{this.user_id}}">
+                    <i class="fas fa-times"></i> {{localize "GMHUB.Dialog.PlayerMap.Clear"}}
+                  </button>
+                {{else if this.isDeparted}}
+                  <button type="button" class="gmhub-clickable" data-action="clear-row" data-user-id="{{this.user_id}}">
+                    <i class="fas fa-times"></i> {{localize "GMHUB.Dialog.PlayerMap.Clear"}}
+                  </button>
+                {{/if}}
               </td>
             </tr>
           {{/each}}
         </tbody>
       </table>
+
+      {{!-- Standing hint: resolving a mapping only re-applies ownership on
+           the NEXT Pull (ownership is written inside the Pull pipeline).
+           Tell the GM so they aren't left thinking a just-saved mapping
+           took effect on already-pulled pages. --}}
+      <p class="gmhub-player-map-hint"><em>{{localize "GMHUB.Notify.MappingSavedRePull"}}</em></p>
 
       {{!-- type=submit triggers FormApplication's submission flow,
            which routes through _updateObject. --}}

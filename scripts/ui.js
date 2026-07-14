@@ -14,7 +14,8 @@
 // CLASS INVENTORY:
 //   - SyncDialog              — main entry point: Ping, Pull, Push, lifecycle.
 //   - LifecycleConfirmDialog  — destructive-action confirm prompt.
-//   - PushPreviewDialog       — counts + journal names before Push commits.
+//   - PrePushReviewDialog     — grouped dirty-state dashboard + drift; the
+//                               single confirm gate before Push commits.
 //   - AgendaEditorDialog      — agenda/pinned scene + entity editor.
 //   - ConfirmOverwriteDialog  — "you have unpushed edits" Pull guard.
 //   - PickSessionDialog       — list-and-pick the active session.
@@ -75,6 +76,39 @@ function lifecycleAvailableFor(status) {
 // Capitalize first letter — used to build i18n keys like
 // `GMHUB.Button.SessionStart` from the action name "start".
 function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
+// -----------------------------------------------------------------------------
+// confirmViaDialog(DialogClass, props)
+// -----------------------------------------------------------------------------
+// The promise-wrapped confirm-gate idiom, extracted so every "pop a
+// confirm dialog, await the GM's yes/no" call site shares one
+// implementation instead of hand-rolling the same new Promise +
+// resolved-flag + close() monkey-patch. Constructs `DialogClass` with
+// `props` plus an injected `onConfirm` that resolves the promise `true`,
+// then patches `close()` so an X-out (title-bar close without confirming)
+// resolves `false`. Renders and returns a `Promise<boolean>`.
+//
+// Every dialog it drives already takes `({ ...props, onConfirm }, options={})`
+// and fires `this.onConfirm(); this.close();` from its confirm button, so
+// this is a clean drop-in. No third `options` param — no call site passes a
+// Foundry-options constructor arg, and the dialog constructors already
+// default `options={}` themselves.
+// -----------------------------------------------------------------------------
+function confirmViaDialog(DialogClass, props = {}) {
+  return new Promise((resolve) => {
+    // Track whether the confirm callback fired so the close handler can
+    // distinguish "user cancelled" from "user confirmed".
+    let resolved = false;
+    const dialog = new DialogClass({
+      ...props,
+      onConfirm: () => { resolved = true; resolve(true); }
+    });
+    // Monkey-patch close so an X-out falls through to "cancel".
+    const origClose = dialog.close.bind(dialog);
+    dialog.close = async (...args) => { if (!resolved) resolve(false); return origClose(...args); };
+    dialog.render(true);
+  });
+}
 
 // =============================================================================
 // SyncDialog
@@ -168,22 +202,10 @@ export class SyncDialog extends Application {
     const campaignId = game.settings.get(MODULE_ID, "campaignId");
     const sessionId = game.settings.get(MODULE_ID, "activeSessionId");
     if (!campaignId || !sessionId) return;
-    // Confirm gate — wraps the confirm dialog in a promise so we can
-    // await it in this otherwise-linear flow.
+    // Confirm gate — the shared helper awaits the GM's yes/no in this
+    // otherwise-linear flow.
     if (confirm) {
-      const ok = await new Promise((resolve) => {
-        // Track whether the confirm callback fired so the close handler
-        // can distinguish "user cancelled" from "user confirmed".
-        let resolved = false;
-        const dialog = new LifecycleConfirmDialog({
-          action, onConfirm: () => { resolved = true; resolve(true); }
-        });
-        // Monkey-patch close to fall through to "cancel" if the user
-        // closed the dialog via the title-bar X without confirming.
-        const origClose = dialog.close.bind(dialog);
-        dialog.close = async (...args) => { if (!resolved) resolve(false); return origClose(...args); };
-        dialog.render(true);
-      });
+      const ok = await confirmViaDialog(LifecycleConfirmDialog, { action });
       if (!ok) return;
     }
     // Disable lifecycle buttons + show in-progress text.
@@ -257,19 +279,11 @@ export class SyncDialog extends Application {
       this._setStatus(game.i18n.localize("GMHUB.Notify.Pulling"));
       try {
         const result = await safeCall(() => this.sync.pullAll({
-          confirmOverwrite: (dirtyEntries) => new Promise((resolve) => {
-            let resolved = false;
-            const dialog = new ConfirmOverwriteDialog({
-              // Strip down to {name} to keep the dialog template simple.
-              dirtyEntries: dirtyEntries.map((e) => ({ name: e.name })),
-              onConfirm: () => { resolved = true; resolve(true); }
-            });
-            // Same callback-bag pattern Foundry uses for its own dialogs.
-            dialog.options.callbacks = dialog.options.callbacks ?? {};
-            // Patch close so an X-out resolves false.
-            const origClose = dialog.close.bind(dialog);
-            dialog.close = async (...args) => { if (!resolved) resolve(false); return origClose(...args); };
-            dialog.render(true);
+          // Return the helper's promise directly so pullAll's
+          // confirmOverwrite callback can await the GM's yes/no. Strip
+          // each dirty entry down to {name} to keep the dialog simple.
+          confirmOverwrite: (dirtyEntries) => confirmViaDialog(ConfirmOverwriteDialog, {
+            dirtyEntries: dirtyEntries.map((e) => ({ name: e.name }))
           })
         }));
         // Cancel returns a sentinel — show the cancelled status and skip the report.
@@ -284,8 +298,9 @@ export class SyncDialog extends Application {
         this._setStatus(game.i18n.localize("GMHUB.Notify.PullFailed"), err.message ?? "");
       }
     });
-    // Push button. Two-stage: previewPush() to render counts, then
-    // PushPreviewDialog gates the actual pushAll() call.
+    // Push button. Two-stage: previewPush() to gather the dirty-state
+    // dashboard, then PrePushReviewDialog is the single confirm gate on
+    // the actual pushAll() call.
     html.find('[data-action="push"]').on("click", async () => {
       const preview = this.sync.previewPush();
       // Most common error short-circuit: no campaign bound.
@@ -293,17 +308,9 @@ export class SyncDialog extends Application {
         this._setStatus(game.i18n.localize("GMHUB.Notify.PushFailed"), preview.error);
         return;
       }
-      // Promise-wrapped preview confirm. Same pattern as the Pull guard.
-      const confirmed = await new Promise((resolve) => {
-        let resolved = false;
-        const dialog = new PushPreviewDialog({
-          preview,
-          onConfirm: () => { resolved = true; resolve(true); }
-        });
-        const origClose = dialog.close.bind(dialog);
-        dialog.close = async (...args) => { if (!resolved) resolve(false); return origClose(...args); };
-        dialog.render(true);
-      });
+      // Pre-push review dashboard is the single confirm gate (no double-
+      // confirm). total==0 opens it to the "nothing to push" empty state.
+      const confirmed = await confirmViaDialog(PrePushReviewDialog, { preview });
       if (!confirmed) { this._setStatus(game.i18n.localize("GMHUB.Notify.PushCancelled")); return; }
       this._setStatus(game.i18n.localize("GMHUB.Notify.Pushing"));
       try {
@@ -364,21 +371,31 @@ export class LifecycleConfirmDialog extends Application {
 }
 
 // =============================================================================
-// PushPreviewDialog
+// PrePushReviewDialog
 // =============================================================================
-// Renders a categorized count of what `pushAll` would do, so the GM
-// can sanity-check before committing. GMV-9 expanded this to list the
-// individual session journals that have dirty plan pages.
+// The pre-push review dashboard — the single confirm gate on Push
+// (supersedes the old PushPreviewDialog). Groups every pending change
+// (entities create/update, notes create/update, quick-note queue,
+// per-session plan edits) with counts and per-entry rows, plus a
+// read-only visibility-drift group. Document-backed rows (entities,
+// notes, session journals) open the underlying page/journal on click;
+// quick-notes, the session-plan field label, and drift rows are
+// read-only. Fed by `previewPush()` (see sync.js).
+//
+// total==0 preserves the old behaviour exactly: the dialog still opens
+// (no pre-dialog short-circuit) and renders the "nothing to push" empty
+// state with a disabled Confirm; drift is NOT shown in the empty branch,
+// so it only ever surfaces alongside real pending work.
 // =============================================================================
-export class PushPreviewDialog extends Application {
+export class PrePushReviewDialog extends Application {
   constructor({ preview = null, onConfirm = () => {} } = {}, options = {}) {
     super(options); this.preview = preview; this.onConfirm = onConfirm;
   }
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
-      id: "gmhub-push-preview", title: "Push preview",
-      template: `modules/${MODULE_ID}/templates/push-preview.hbs`,
-      width: 520, height: "auto", classes: ["gmhub-push-preview-dialog"]
+      id: "gmhub-pre-push-review", title: "Pre-push review",
+      template: `modules/${MODULE_ID}/templates/pre-push-review.hbs`,
+      width: 560, height: "auto", classes: ["gmhub-pre-push-review-dialog"]
     });
   }
   getData() {
@@ -392,6 +409,7 @@ export class PushPreviewDialog extends Application {
     if (sp.pinned) sessionPlanFields.push("pinned");
     return {
       // Empty preview triggers the "nothing to push" branch in the template.
+      // total EXCLUDES drift, so a drift-only world still reads as empty.
       empty: (p.total ?? 0) === 0,
       entitiesCreate: p.entities?.create ?? [],
       entitiesUpdate: p.entities?.update ?? [],
@@ -401,13 +419,28 @@ export class PushPreviewDialog extends Application {
       // null when no fields are set so the template can {{#if}} cleanly.
       sessionPlanLabel: sessionPlanFields.length ? sessionPlanFields.join(", ") : null,
       sessionPlanJournals: p.sessionPlanJournals ?? [],
-      quickNotes: p.quickNotes ?? 0
+      quickNotes: p.quickNotes ?? 0,
+      // Read-only bucket; the template only renders it in the non-empty branch.
+      visibilityDrift: p.visibilityDrift ?? []
     };
   }
   activateListeners(html) {
     super.activateListeners(html);
     html.find('[data-action="cancel"]').on("click", () => this.close());
     html.find('[data-action="confirm"]').on("click", () => { this.onConfirm(); this.close(); });
+    // Click-through: open the underlying Foundry document for a row that
+    // carries a uuid. fromUuidSync is null-guarded because the doc may have
+    // been deleted between preview and click.
+    html.find('[data-action="open-doc"]').on("click", (evt) => {
+      const uuid = evt.currentTarget.dataset.uuid;
+      if (!uuid) return;
+      const doc = fromUuidSync(uuid);
+      if (!doc) return;
+      // A JournalEntryPage opens its parent journal focused on the page;
+      // a JournalEntry (session journal) opens its own sheet.
+      if (doc.documentName === "JournalEntryPage") doc.parent?.sheet?.render(true, { pageId: doc.id });
+      else doc.sheet?.render(true);
+    });
   }
 }
 
@@ -755,10 +788,15 @@ export class PickSessionDialog extends Application {
 export class PlayerMapDialog extends FormApplication {
   constructor(object = {}, options = {}) {
     super(object, options);
-    this.players = []; this.loading = true; this.error = null;
+    this.players = []; this.departed = []; this.loading = true; this.error = null;
     // Clone the existing setting so cancel = discard (FormApplication
     // wouldn't otherwise let us roll back).
     this.mapping = { ...(game.settings.get(MODULE_ID, "playerMap") ?? {}) };
+    // GMhub ids the GM explicitly Cleared this session. Suppresses the
+    // name-match auto-suggestion on those rows so a Clear stays cleared
+    // (otherwise a stale row could re-suggest a same-named replacement
+    // and an untouched Save would write it instead of removing the key).
+    this.cleared = new Set();
   }
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
@@ -775,14 +813,21 @@ export class PlayerMapDialog extends FormApplication {
   // ---------------------------------------------------------------------------
   // Pull the campaign member list (GMhub-side) so we can render a row
   // per player. GMs are filtered out — they're already the local GM
-  // user in Foundry by definition.
+  // user in Foundry by definition. Also compute the *departed* set:
+  // `playerMap` keys that no longer appear among the fetched players
+  // (their GMhub member was removed from the campaign). Those keys must
+  // still be rendered as rows so `_updateObject`'s from-scratch rebuild
+  // doesn't silently drop them (see getData / union-rendering).
   // ---------------------------------------------------------------------------
   async _refresh() {
-    const campaignId = game.settings.get(MODULE_ID, "campaignId");
+    // Prefer an explicit campaignId override (the setup wizard opens this
+    // dialog before the campaign is finalized in world settings); fall back
+    // to the world setting for the standalone Module-Settings flow.
+    const campaignId = this.options.campaignId ?? game.settings.get(MODULE_ID, "campaignId");
     if (!campaignId) {
       this.loading = false;
       this.error = game.i18n.localize("GMHUB.PickSession.NoCampaign");
-      this.players = []; this.render(false); return;
+      this.players = []; this.departed = []; this.render(false); return;
     }
     this.loading = true; this.error = null; this.render(false);
     try {
@@ -794,22 +839,88 @@ export class PlayerMapDialog extends FormApplication {
       // Players-only rows in the picker; GMs aren't mapped (they're the
       // local GM user in Foundry already).
       this.players = members.filter((m) => m.role === "player");
+      // Departed = mapped GMhub ids no longer present as players. Rendered
+      // as `player.<id>` rows below so their mapping survives a Save.
+      const present = new Set(this.players.map((p) => p.user_id));
+      this.departed = Object.keys(this.mapping).filter((id) => !present.has(id));
     } catch (err) {
       this.error = err.message ?? String(err);
-      this.players = [];
+      this.players = []; this.departed = [];
     }
     this.loading = false; this.render(false);
   }
   getData() {
     // Foundry users available as mapping targets — anyone non-GM.
     const foundryUsers = (game.users?.contents ?? []).filter((u) => !u.isGM);
-    // One row per GMhub player; the dropdown options come pre-marked
-    // with `selected: true` for the currently-mapped Foundry user.
-    const rows = (this.players ?? []).map((p) => {
-      const mapped = this.mapping[p.user_id] ?? "";
-      const choices = foundryUsers.map((u) => ({ id: u.id, name: u.name, selected: u.id === mapped }));
-      return { user_id: p.user_id, display_name: p.display_name, choices };
-    });
+    // Index Foundry user ids for O(1) existence checks (stale detection)
+    // and case-insensitive name → user lookup (auto-suggest). A name is
+    // ambiguous (2+ users) → left blank; Foundry does not enforce unique
+    // user.name so we only suggest a unique match.
+    const usersById = new Set(foundryUsers.map((u) => u.id));
+    const nameCounts = new Map();
+    for (const u of foundryUsers) {
+      const key = (u.name ?? "").trim().toLowerCase();
+      nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
+    }
+
+    // Build one row from a GMhub id + (optional) member record. Handles
+    // players, departed ids, and stale/synthetic option round-tripping.
+    // All status derivation lives here in getData(), never in the template.
+    const buildRow = (userId, member, isDeparted) => {
+      const mapped = this.mapping[userId] ?? "";
+      const isMapped = mapped.length > 0 && usersById.has(mapped);
+      // Stale = a stored mapping whose Foundry user no longer exists.
+      const isStale = mapped.length > 0 && !usersById.has(mapped);
+      const isUnmapped = mapped.length === 0;
+
+      // Auto-suggest: only for unmapped rows, only a *unique* case-
+      // insensitive display_name → user.name match. Pre-select only; the
+      // GM confirms by Saving (never auto-persisted).
+      let suggestedId = "";
+      if (isUnmapped && member && !this.cleared.has(userId)) {
+        const key = (member.display_name ?? "").trim().toLowerCase();
+        if (key && nameCounts.get(key) === 1) {
+          const match = foundryUsers.find((u) => (u.name ?? "").trim().toLowerCase() === key);
+          if (match) suggestedId = match.id;
+        }
+      }
+      const isSuggested = suggestedId.length > 0;
+
+      // Pre-select the mapped user, else the suggestion. The selected
+      // value is what an untouched Save persists.
+      const selectedId = isMapped ? mapped : suggestedId;
+      const choices = foundryUsers.map((u) => ({
+        id: u.id, name: u.name, selected: u.id === selectedId
+      }));
+      // Synthetic option: when the stored mapping points at a user absent
+      // from game.users (stale, incl. departed+stale), no real <option>
+      // matches, so the browser would default the select to empty and the
+      // next Save would silently drop the key. Append a selected synthetic
+      // option carrying the raw id so the value round-trips; only an
+      // explicit Clear removes it.
+      const synthetic = isStale
+        ? { id: mapped, label: game.i18n.format("GMHUB.Dialog.PlayerMap.UnknownUser", { id: mapped }) }
+        : null;
+
+      const status = isStale ? "stale" : (isMapped ? "mapped" : "unmapped");
+      return {
+        user_id: userId,
+        // Departed ids have no member record → fall back to the raw id.
+        display_name: member?.display_name ?? userId,
+        choices,
+        synthetic,
+        status,
+        isMapped, isUnmapped, isStale, isDeparted, isSuggested
+      };
+    };
+
+    // Row set = current players ∪ departed mapped ids. Departed rows are
+    // ordinary `player.<id>` rows (badged departed) so the from-scratch
+    // rebuild in _updateObject preserves them.
+    const rows = [
+      ...(this.players ?? []).map((p) => buildRow(p.user_id, p, false)),
+      ...(this.departed ?? []).map((id) => buildRow(id, null, true))
+    ];
     return {
       loading: this.loading,
       error: this.error,
@@ -822,6 +933,39 @@ export class PlayerMapDialog extends FormApplication {
     super.activateListeners(html);
     if (this.loading && !this.error) this._refresh();
     html.find('[data-action="refresh"]').on("click", () => this._refresh());
+    // Inline Clear: drop this row's mapping so an explicit Save removes
+    // the key. Matches the single-write-path convention — nothing persists
+    // to settings until Save. We first snapshot the *current* form state
+    // back into `this.mapping` so the re-render (which rebuilds every
+    // <select> from `this.mapping`) doesn't discard the GM's other
+    // unsaved picks; then we delete just the cleared key so getData()
+    // stops round-tripping a synthetic option for it.
+    html.find('[data-action="clear-row"]').on("click", (evt) => {
+      const userId = evt.currentTarget.dataset.userId;
+      if (!userId) return;
+      this._captureFormInto(html, this.mapping);
+      delete this.mapping[userId];
+      // Remember the clear so the re-render doesn't re-suggest a
+      // same-named replacement into the now-empty row.
+      this.cleared.add(userId);
+      this.render(false);
+    });
+  }
+  // ---------------------------------------------------------------------------
+  // _captureFormInto(html, target)
+  // ---------------------------------------------------------------------------
+  // Rebuild `target` from the current `player.*` <select> values so an
+  // interstitial re-render (e.g. Clear) preserves unsaved selections.
+  // Mirrors _updateObject's from-scratch semantics: empty select = key
+  // absent. Mutates `target` in place (clearing removed keys first).
+  // ---------------------------------------------------------------------------
+  _captureFormInto(html, target) {
+    for (const key of Object.keys(target)) delete target[key];
+    html.find('select[name^="player."]').each((_i, el) => {
+      const userId = el.name.slice("player.".length);
+      const value = el.value;
+      if (typeof value === "string" && value.length > 0) target[userId] = value;
+    });
   }
   // ---------------------------------------------------------------------------
   // _updateObject(_event, formData)
@@ -840,6 +984,10 @@ export class PlayerMapDialog extends FormApplication {
     }
     await game.settings.set(MODULE_ID, "playerMap", next);
     ui.notifications?.info(game.i18n.localize("GMHUB.Notify.MappingSaved"));
+    // Notify an embedding caller (the setup wizard) so it can record the
+    // mapping into its atomic stepData. No-op for the standalone
+    // Module-Settings / api.openPlayerMap() flow (no onSubmit provided).
+    this.options.onSubmit?.(next);
   }
 }
 

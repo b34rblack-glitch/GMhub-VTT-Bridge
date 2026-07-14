@@ -280,7 +280,11 @@ export class SetupWizardDialog extends Application {
       if (!campaignId) return;
       // Import PlayerMapDialog here to avoid circular deps.
       const { PlayerMapDialog } = await import("./ui.js");
-      const dialog = new PlayerMapDialog(campaignId, {
+      // Constructor is (object, options). Pass the wizard's not-yet-finalized
+      // campaignId as an options override (the world setting isn't written
+      // until _finalize) and an onSubmit so Save flows into stepData.step3.
+      const dialog = new PlayerMapDialog({}, {
+        campaignId,
         onSubmit: (playerMap) => {
           this.stepData.step3.playerMap = playerMap;
           this.dirty = true;

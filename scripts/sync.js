@@ -456,6 +456,75 @@ export function computePageOwnership({ visibility, recipients } = {}) {
 }
 
 // -----------------------------------------------------------------------------
+// _ownershipDrifts(expected, actual)
+// -----------------------------------------------------------------------------
+// Compare two Foundry ownership maps by EFFECTIVE level — `map[id] ?? default`
+// — rather than a deep-equal, and report whether any *non-GM* user's access
+// diverges. Powers the pre-push visibility-drift bucket: `expected` is the
+// ownership `computePageOwnership` would emit from the page's stored
+// visibility flag, `actual` is the page's live `ownership` after a Foundry
+// eye-toggle.
+//
+// Two deliberate rules:
+//   1. Exclude every OWNER-holding (GM) user id on EITHER side, not just the
+//      current gmUserId(). The OWNER id was chosen at Pull time and may differ
+//      from today's GM — excluding only the current one would leave a stale
+//      Pull-time GM id that false-positives.
+//   2. Effective-level compare tolerates the missing-key-vs-`default`
+//      asymmetry (an explicit `id: NONE` equals absent + `default: NONE`), so
+//      a freshly-pulled untouched page never drifts. A human-set LIMITED (a
+//      level computePageOwnership never emits) is a genuine divergence and
+//      DOES count — intended, not a false positive.
+// -----------------------------------------------------------------------------
+function _ownershipDrifts(expected, actual) {
+  const { NONE, OWNER } = ownershipLevels();
+  const exp = expected ?? {};
+  const act = actual ?? {};
+  // Collect the GM/OWNER ids to skip from BOTH sides (see rule 1).
+  const gmIds = new Set();
+  for (const [id, lvl] of Object.entries(exp)) if (id !== "default" && lvl === OWNER) gmIds.add(id);
+  for (const [id, lvl] of Object.entries(act)) if (id !== "default" && lvl === OWNER) gmIds.add(id);
+  // Compare the defaults explicitly — they anchor every absent-key lookup.
+  const expDefault = exp.default ?? NONE;
+  const actDefault = act.default ?? NONE;
+  if (expDefault !== actDefault) return true;
+  // Union of explicit ids, minus the GM ids, compared at effective level.
+  const ids = new Set([...Object.keys(exp), ...Object.keys(act)]);
+  ids.delete("default");
+  for (const id of ids) {
+    if (gmIds.has(id)) continue;
+    const expLvl = exp[id] ?? expDefault;
+    const actLvl = act[id] ?? actDefault;
+    if (expLvl !== actLvl) return true;
+  }
+  return false;
+}
+
+// -----------------------------------------------------------------------------
+// _pageVisibilityDrifts(page)
+// -----------------------------------------------------------------------------
+// True when a PULLED entity/notes page's live Foundry ownership diverges from
+// what its stored visibility flag implies. Scans ONLY pages carrying a
+// `flags.gmhub-vtt-bridge.visibility` flag — that flag is stamped at Pull time, so a
+// never-pulled / create-side / hand-made page has no server baseline and is
+// skipped (returning it would false-positive AND double-list it against the
+// create/update bucket). Recomputes the expected ownership via the shared
+// `computePageOwnership` so skipped/unmapped `shared` recipients can't
+// false-positive either.
+// -----------------------------------------------------------------------------
+function _pageVisibilityDrifts(page) {
+  const flag = page.getFlag(MODULE_ID, FLAG_VISIBILITY);
+  // No stored visibility flag → no Pull-time baseline → skip.
+  if (flag == null) return false;
+  const recipients = page.getFlag(MODULE_ID, FLAG_RECIPIENTS) ?? [];
+  const { ownership: expected } = computePageOwnership({
+    visibility: flag,
+    recipients: Array.isArray(recipients) ? recipients : []
+  });
+  return _ownershipDrifts(expected, page.ownership);
+}
+
+// -----------------------------------------------------------------------------
 // SESSION_PLAN_FLAGS / SESSION_PLAN_PAGE_NAMES
 // -----------------------------------------------------------------------------
 // Re-exports for ui.js so the AgendaEditorDialog can look up the right
@@ -476,6 +545,77 @@ export const SESSION_PLAN_PAGE_NAMES = {
 // without reaching for the private helpers.
 export function renderAgendaHtml(agenda) { return agendaHtml(agenda); }
 export function renderPinnedHtml(pinned) { return pinnedHtml(pinned); }
+
+// -----------------------------------------------------------------------------
+// notifyClickable(message, onClick)
+// -----------------------------------------------------------------------------
+// Show a *permanent* warning toast whose body, when clicked, runs
+// `onClick`. Foundry exposes no official "clickable notification" API, so
+// we resolve the rendered <li> ourselves and bind a handler:
+//   - v13+ (the verified v14 target): `warn()` returns a Notification
+//     object carrying `.element` (the <li>).
+//   - v11/v12 fallback: `warn()` returns a numeric id; the matching <li>
+//     appears under `#notifications` with a `[data-id="<id>"]` attribute.
+// The <li> is created asynchronously from the notification queue, so we
+// poll a few animation frames before binding.
+//
+// Two hard requirements (both defended below):
+//   (a) Clicking the close control must NOT fire `onClick` — only the body
+//       opens the target. Otherwise dismissing the toast would open it.
+//   (b) Degrade gracefully: if the <li> never resolves (e.g. an unverified
+//       v11/v12 DOM shape), the toast simply stays non-clickable. This
+//       helper must never throw.
+// -----------------------------------------------------------------------------
+export function notifyClickable(message, onClick) {
+  // Permanent so the toast survives past the ~5s auto-dismiss until the GM
+  // acts on it. If notifications aren't ready there's nothing to bind.
+  const result = ui.notifications?.warn?.(message, { permanent: true });
+  if (result == null) return;
+
+  const CLOSE_SELECTOR = ".close, [data-action='close'], i.fa-times, .fa-xmark";
+  const MAX_FRAMES = 10;
+  let frames = 0;
+
+  const resolveElement = () => {
+    // v13+: Notification object with an `.element` (HTMLElement or jQuery).
+    if (typeof result === "object" && result.element) {
+      const el = result.element;
+      if (el instanceof HTMLElement) return el;
+      // jQuery-wrapped fallback.
+      if (el[0] instanceof HTMLElement) return el[0];
+      return null;
+    }
+    // v11/v12: numeric id → look the <li> up by data-id.
+    const id = (typeof result === "object") ? result.id : result;
+    if (id == null || typeof document === "undefined") return null;
+    return document.querySelector(`#notifications [data-id="${id}"]`);
+  };
+
+  const bind = () => {
+    try {
+      const li = resolveElement();
+      if (li) {
+        li.classList.add("gmhub-clickable");
+        li.addEventListener("click", (ev) => {
+          // (a) Ignore clicks on the close control so dismiss ≠ open.
+          if (ev.target?.closest?.(CLOSE_SELECTOR)) return;
+          // Never let a handler error escape into Foundry's UI loop.
+          try { onClick?.(); } catch (_err) { /* swallow */ }
+        });
+        return;
+      }
+      // (b) Not rendered yet — retry a few frames, then give up quietly.
+      if (frames++ < MAX_FRAMES && typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(bind);
+      }
+    } catch (_err) {
+      // DOM shape we didn't anticipate — leave the toast non-clickable.
+    }
+  };
+
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(bind);
+  else bind();
+}
 
 // -----------------------------------------------------------------------------
 // pinnedHtml(pinned)
@@ -878,11 +1018,16 @@ export class SyncService {
     // entities and notes have contributed to `unmapped`.
     if (unmapped.size > 0) {
       const list = Array.from(unmapped).join(", ");
-      ui.notifications?.warn(
+      // Clickable toast: same warning text, but clicking the body opens the
+      // player-mapping resolver so the GM can fix the mappings in place. We
+      // reach the resolver through the runtime module API (not a static
+      // import of ui.js) to avoid a ui.js ↔ sync.js circular import.
+      notifyClickable(
         game.i18n.format("GMHUB.Warn.UnmappedRecipients", {
           count: unmapped.size,
           ids: list
-        })
+        }),
+        () => game.modules.get(MODULE_ID).api?.openPlayerMap?.()
       );
     }
 
@@ -1220,10 +1365,14 @@ export class SyncService {
   // ---------------------------------------------------------------------------
   // previewPush()
   // ---------------------------------------------------------------------------
-  // Dry-run that the PushPreviewDialog renders before the GM commits to
-  // a Push. Walks the same shape as pushAll but doesn't hit the
-  // network. Returns categorized counts + the list of session journals
-  // that have dirty plan pages (so the dialog can name them — GMV-9).
+  // Dry-run that the pre-push review dashboard renders before the GM
+  // commits to a Push. Walks the same shape as pushAll but doesn't hit the
+  // network. Returns categorized counts, a per-entry `uuid` (so the
+  // dashboard can open the underlying page/journal on click), the list of
+  // session journals with dirty plan pages (GMV-9), and a read-only
+  // `visibilityDrift` bucket of pages whose Foundry ownership diverged from
+  // their stored visibility flag. `total` intentionally EXCLUDES drift so
+  // the `total==0` empty-state path is byte-identical to before.
   // ---------------------------------------------------------------------------
   previewPush() {
     const campaignId = game.settings.get(MODULE_ID, "campaignId");
@@ -1233,10 +1382,15 @@ export class SyncService {
       notes: { create: [], update: [] },
       sessionPlan: { gmNotes: false, gmSecrets: false, agenda: false, pinned: false },
       sessionPlanJournals: [],
+      // Read-only bucket: pages whose Foundry ownership drifted from their
+      // stored visibility flag (a local eye-toggle Push won't send back).
+      // EXCLUDED from `total` — see the total computation below.
+      visibilityDrift: [],
       quickNotes: 0,
       total: 0
     };
-    // Bucket entity pages by create-vs-update.
+    // Bucket entity pages by create-vs-update; every page also gets a drift
+    // check (independent of dirty/create state — see _pageVisibilityDrifts).
     for (const kind of Object.keys(KIND_JOURNAL_NAMES)) {
       const journal = game.journal.contents.find((e) => e.getFlag(MODULE_ID, FLAG_KIND) === kind);
       if (!journal) continue;
@@ -1245,19 +1399,22 @@ export class SyncService {
         if (page.type !== "text") continue;
         const externalId = page.getFlag(MODULE_ID, FLAG_EXTERNAL_ID);
         const dirty = page.getFlag(MODULE_ID, FLAG_DIRTY);
-        if (!externalId) preview.entities.create.push({ name: page.name, kind });
-        else if (dirty) preview.entities.update.push({ name: page.name, kind });
+        // uuid lets the pre-push dashboard open the underlying page on click.
+        if (!externalId) preview.entities.create.push({ name: page.name, kind, uuid: page.uuid });
+        else if (dirty) preview.entities.update.push({ name: page.name, kind, uuid: page.uuid });
+        if (_pageVisibilityDrifts(page)) preview.visibilityDrift.push({ name: page.name });
       }
     }
-    // Same bucketing for notes.
+    // Same bucketing (+ drift check) for notes.
     const notesJournal = game.journal.contents.find((e) => e.getFlag(MODULE_ID, FLAG_KIND) === "notes");
     if (notesJournal) {
       for (const page of notesJournal.pages.contents) {
         if (page.type !== "text") continue;
         const externalId = page.getFlag(MODULE_ID, FLAG_EXTERNAL_ID);
         const dirty = page.getFlag(MODULE_ID, FLAG_DIRTY);
-        if (!externalId) preview.notes.create.push({ name: page.name });
-        else if (dirty) preview.notes.update.push({ name: page.name });
+        if (!externalId) preview.notes.create.push({ name: page.name, uuid: page.uuid });
+        else if (dirty) preview.notes.update.push({ name: page.name, uuid: page.uuid });
+        if (_pageVisibilityDrifts(page)) preview.visibilityDrift.push({ name: page.name });
       }
     }
     // Aggregate session-plan dirty flags + collect dirty journal names.
@@ -1272,8 +1429,9 @@ export class SyncService {
         else if (page.name === SESSION_PAGE_PINNED) preview.sessionPlan.pinned = true;
       }
       // GMV-9: name the dirty session journals so the preview dialog
-      // can show "Sessions: Foo, Bar" instead of a bare count.
-      if (anyDirty) preview.sessionPlanJournals.push(journal.name);
+      // can show "Sessions: Foo, Bar" instead of a bare count. The uuid
+      // lets the pre-push dashboard open the journal on click.
+      if (anyDirty) preview.sessionPlanJournals.push({ name: journal.name, uuid: journal.uuid });
     }
     const queue = game.settings.get(MODULE_ID, "pendingPushQueue") ?? [];
     preview.quickNotes = queue.length;
