@@ -68,6 +68,7 @@
   "GMHUB.Dialog.AgendaEditor.EntityPlaceholder": "Add entity…",
   "GMHUB.Dialog.AgendaEditor.RemoveEntity": "Remove entity link",
   "GMHUB.Dialog.AgendaEditor.NoEntitiesPulled": "No entities pulled yet — Pull first.",
+  "GMHUB.Dialog.AgendaEditor.EntityNotPulled": "{name} (not pulled)",
   "GMHUB.Dialog.AgendaEditor.TitlePlaceholder": "Scene title",
   "GMHUB.Dialog.AgendaEditor.NotesPlaceholder": "Optional GM notes for this scene",
   "GMHUB.Dialog.AgendaEditor.PinnedNamePlaceholder": "Display name",

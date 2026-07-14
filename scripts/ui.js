@@ -479,8 +479,31 @@ export class AgendaEditorDialog extends Application {
         return { ...item, entities, _idx: idx, availableGroups };
       });
     } else {
-      // Pinned mode: inject the row index so per-row buttons find their item.
-      base.items = this.items.map((item, idx) => ({ ...item, _idx: idx }));
+      // Pinned mode: single-select entity picker (upgrade from the old
+      // free-text entity_id box). Same pulled-entity source as agenda, but
+      // one entity per row instead of a multi-chip set.
+      const groups = listPulledEntities();
+      base.anyPulled = groups.length > 0;
+      // Flat id set so we can detect a stored entity_id that isn't pulled.
+      const pulledIds = new Set(groups.flatMap((g) => g.entities.map((e) => e.id)));
+      base.items = this.items.map((item, idx) => {
+        const currentId = item.entity_id ?? "";
+        // Mark the matching option selected so the picker reflects the pin's
+        // stored id on open.
+        const pickGroups = groups.map((g) => ({
+          kind: g.kind,
+          label: g.label,
+          entities: g.entities.map((e) => ({ ...e, selected: e.id === currentId }))
+        }));
+        // A stored id absent from the pulled list (never pulled / different
+        // campaign) gets a synthetic selected fallback option so opening or
+        // touching the select can't clobber the existing link.
+        const notPulled = !!currentId && !pulledIds.has(currentId);
+        const notPulledLabel = notPulled
+          ? game.i18n.format("GMHUB.Dialog.AgendaEditor.EntityNotPulled", { name: item.name ?? "" })
+          : "";
+        return { ...item, _idx: idx, currentId, pickGroups, notPulled, notPulledLabel };
+      });
     }
     return base;
   }
@@ -560,6 +583,24 @@ export class AgendaEditorDialog extends Application {
       const item = this.items[idx];
       if (!item || !Array.isArray(item.entities)) return;
       item.entities = item.entities.filter((e) => e?.id !== entityId);
+      this.render(false);
+    });
+    // GMV-7: pinned single-select entity picker. Writes the SNAKE shape
+    // (entity_id/name/entity_type — pinnedHtml reads pin.entity_id/
+    // entity_type/name), mutating ONLY those three fields so a pin's
+    // position/staged_at/pin_reason survive untouched.
+    html.find('[data-action="pinned-pick"]').on("change", (evt) => {
+      const idx = Number(evt.currentTarget.dataset.idx);
+      if (!Number.isInteger(idx)) return;
+      const item = this.items[idx]; if (!item) return;
+      const id = evt.currentTarget.value;
+      const opt = evt.currentTarget.selectedOptions?.[0];
+      // Placeholder / disabled empty-state option → no-op (can't blank a pin
+      // via the picker; that matches "picking an entity sets the fields").
+      if (!id || !opt) return;
+      item.entity_id = id;
+      item.name = opt.dataset.name ?? "";
+      item.entity_type = opt.dataset.kind ?? "";
       this.render(false);
     });
     html.find('[data-action="cancel"]').on("click", () => this.close());

@@ -75,27 +75,38 @@
               </select>
             </div>
           {{else}}
-            {{!-- Pinned row: entity_type (one of the six kinds),
-                 display name, GMhub entity_id. The {{eq}} helper is
-                 registered in main.js#init. --}}
-            <select data-idx="{{this._idx}}" data-field="entity_type">
-              <option value="npc" {{#if (eq this.entity_type "npc")}}selected{{/if}}>npc</option>
-              <option value="location" {{#if (eq this.entity_type "location")}}selected{{/if}}>location</option>
-              <option value="faction" {{#if (eq this.entity_type "faction")}}selected{{/if}}>faction</option>
-              <option value="item" {{#if (eq this.entity_type "item")}}selected{{/if}}>item</option>
-              <option value="quest" {{#if (eq this.entity_type "quest")}}selected{{/if}}>quest</option>
-              <option value="lore" {{#if (eq this.entity_type "lore")}}selected{{/if}}>lore</option>
+            {{!-- Pinned row: a single entity picked from the already-pulled
+                 entities (grouped by kind), plus an editable display name.
+                 The picker OWNS entity_id + entity_type (killing the old
+                 free-text id box and the standalone type <select>). A stored
+                 id that isn't pulled gets a synthetic selected fallback option
+                 (built in getData) so opening the dialog can't blank it.
+                 data-action (not data-field) keeps it off the input handler. --}}
+            <select class="gmhub-pinned-entity" data-idx="{{this._idx}}"
+              data-action="pinned-pick" {{#if ../pending}}disabled{{/if}}>
+              <option value="">{{localize "GMHUB.Dialog.AgendaEditor.EntityPlaceholder"}}</option>
+              {{#if this.notPulled}}
+                <option value="{{this.currentId}}" data-name="{{this.name}}" data-kind="{{this.entity_type}}" selected>{{this.notPulledLabel}}</option>
+              {{/if}}
+              {{#if this.pickGroups.length}}
+                {{#each this.pickGroups}}
+                  <optgroup label="{{this.label}}">
+                    {{#each this.entities}}
+                      <option value="{{this.id}}" data-name="{{this.name}}" data-kind="{{../kind}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+                    {{/each}}
+                  </optgroup>
+                {{/each}}
+              {{else}}
+                {{#unless ../anyPulled}}
+                  <option value="" disabled>{{localize "GMHUB.Dialog.AgendaEditor.NoEntitiesPulled"}}</option>
+                {{/unless}}
+              {{/if}}
             </select>
             <input type="text"
               class="gmhub-pinned-name"
               data-idx="{{this._idx}}" data-field="name"
               placeholder="{{localize "GMHUB.Dialog.AgendaEditor.PinnedNamePlaceholder"}}"
               value="{{this.name}}" />
-            <input type="text"
-              class="gmhub-pinned-id"
-              data-idx="{{this._idx}}" data-field="entity_id"
-              placeholder="{{localize "GMHUB.Dialog.AgendaEditor.PinnedIdPlaceholder"}}"
-              value="{{this.entity_id}}" />
           {{/if}}
           {{!-- Per-row control column. CSS makes this span both rows
                of the grid so the buttons stack vertically. --}}
