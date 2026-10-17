@@ -1,6 +1,6 @@
 # GMhub-VTT-Bridge — Project Scope
 
-**Status:** Draft baseline — 2026-05-07 · amended 2026-05-08 (windowed multi-session pull, v0.4.0-α) · amended 2026-05-11 (unified visibility model, v0.4.6) · amended 2026-07-10 (GM-configurable recap window, v0.5.0)
+**Status:** Draft baseline — 2026-05-07 · amended 2026-05-08 (windowed multi-session pull, v0.4.0-α) · amended 2026-05-11 (unified visibility model, v0.4.6) · amended 2026-07-10 (GM-configurable recap window, v0.5.0) · amended 2026-10-17 (encounter import & deploy, v0.8.0)
 **Canonical home:** `b34rblack-glitch/GMhub-VTT-Bridge/SCOPE.md`
 
 This document captures the agreed intent for the GMhub-VTT-Bridge Foundry module.
@@ -76,6 +76,16 @@ The per-page eye toggle in the Foundry sidebar still works locally but is not sy
 - When started from Foundry, the GM picks an existing prepped session from a GMhub list.
 - Active session in Foundry is independent of which session journals are present.
 
+### Encounters (v0.8.0)
+
+The encounter **builder** lives in gmhub-app (GM-only prep content: a named list of creature rows — label, quantity, hidden, HP override, GM note, optional structured homebrew stat block — optionally linked to a session). The module is a **pull-only** consumer; nothing in this feature writes back to GMhub.
+
+- **Import.** The Encounters dialog (Sync dialog button + Journal-sidebar button) lists every encounter in the bound campaign — the active session's first, then the rest grouped by pulled session journal, then "Unlinked" — and expands each to its creature rows.
+- **Actor matching.** Each row is matched by `label` (case-insensitive, trimmed) against world Actors first, then every Actor compendium's index, then a loose "contains" match. The GM picks from a per-row `<select>` (or "none"); picks are remembered per label in the `encounterActorMap` world setting and applied before auto-match on later opens.
+- **Homebrew actor creation.** Rows flagged `is_homebrew` get a "Create actor from GMhub stats" button that builds a dnd5e `npc` Actor in a "GMhub Encounters" folder from the structured stat block (AC, HP, abilities, size/type/alignment, CR, speed, senses, languages, damage/condition traits, legendary count; traits/actions/bonus actions/reactions/legendary actions as feat items). The actor is stamped with the creature row id and **reused** (updated in place) on subsequent clicks — never duplicated. The dnd5e field mapping is best-effort; name/HP/AC always land.
+- **Deploy to scene + combat.** Per encounter, Deploy asks the GM to click a point on the current scene, places `quantity` tokens per matched row on a snapped ring/grid around it (`hidden` rows hidden; `hp_override` as a per-token HP delta; compendium actors imported to the world first; `flags.gmhub-vtt-bridge.encounterId` stamped), then adds every new token to the scene's Combat (created if none). **Initiative is not rolled.** Rows with no matched actor are skipped and reported.
+- Encounters are GM-only on both sides: never shown to players, never synced into player-visible journals.
+
 ## Out of scope
 
 | Out of scope                                     | Why                                                                 |
@@ -85,7 +95,7 @@ The per-page eye toggle in the Foundry sidebar still works locally but is not sy
 | Live/realtime sync, websockets, webhooks         | Manual push/pull is the intended UX.                                |
 | Player Foundry users authenticating with GMhub   | Only the GM client authenticates; the playerMap translates ids.     |
 | Non-GM-driven syncs                              | All sync is GM-initiated.                                           |
-| Encounter builder, AI assistant, Stripe          | Not module concerns.                                                |
+| AI assistant, Stripe                             | Not module concerns. (The encounter *builder* lives in gmhub-app; since v0.8.0 the module only imports and deploys encounters — see In scope → Encounters.) |
 | Full session history in Foundry                  | Pull is windowed.                                                   |
 
 ## Behaviour contracts
@@ -111,4 +121,4 @@ The per-page eye toggle in the Foundry sidebar still works locally but is not sy
 ## Cross-references
 
 - **GMhub-app**: `docs/SISTER_REPO.md` is the webapp-side mirror of this scope.
-- **Module relies on**: `entities`, `notes`, `session_plan`, `quick_notes`, `sessions`, and the per-table `*_player_reveals` allowlists.
+- **Module relies on**: `entities`, `notes`, `session_plan`, `quick_notes`, `sessions`, the per-table `*_player_reveals` allowlists, and (read-only, v0.8.0) `encounters` + `encounter_creatures` via `GmhubClient.listEncounters` / `GmhubClient.getEncounter`.

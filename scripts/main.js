@@ -21,6 +21,7 @@
 //   - openAgendaEditor(page)        -> direct deep-link into agenda editor
 //   - openPlayerMap()               -> GM-only player slot mapping submenu
 //   - openVisibilityDialog(page)    -> per-page visibility editor (0016)
+//   - openEncounters()              -> GMhub encounters list / deploy (v0.8.0)
 //
 // 0016 (Unified Visibility):
 //   The per-page eye-toggle reverse-mapper in `updateJournalEntryPage`
@@ -41,6 +42,9 @@ import {
   SyncDialog
 } from "./ui.js";
 import { SetupWizardDialog } from "./setup-wizard.js";
+// v0.8.0 (GMV-13): encounter import & deploy. encounters.js never imports
+// ui.js, so this edge + ui.js's own import of it stay acyclic.
+import { openEncountersDialog } from "./encounters.js";
 
 // Canonical module id — matches module.json#id and is the namespace for
 // every flag, setting, and template path in this codebase.
@@ -144,6 +148,13 @@ Hooks.once("init", () => {
   game.settings.register(MODULE_ID, "playerMap", {
     scope: "world", config: false, type: Object, default: {}
   });
+  // v0.8.0 (GMV-13) — remembered per-label actor picks for the Encounters
+  // dialog: `{ [labelLower]: actorUuid }`. Hidden from the settings UI; it
+  // is written by the dialog's actor <select> and read before auto-match
+  // on every open so a deliberate choice beats a name guess.
+  game.settings.register(MODULE_ID, "encounterActorMap", {
+    scope: "world", config: false, type: Object, default: {}
+  });
   // Submenu so the GM has a button in the settings UI to open the
   // PlayerMapDialog (a FormApplication is the standard way to expose
   // a multi-field editor for an opaque-Object setting in Foundry).
@@ -167,7 +178,8 @@ Hooks.once("init", () => {
     `modules/${MODULE_ID}/templates/agenda-editor.hbs`,
     `modules/${MODULE_ID}/templates/player-map.hbs`,
     `modules/${MODULE_ID}/templates/visibility.hbs`,
-    `modules/${MODULE_ID}/templates/setup-wizard.hbs`
+    `modules/${MODULE_ID}/templates/setup-wizard.hbs`,
+    `modules/${MODULE_ID}/templates/encounters.hbs`
   ]);
 
   // Register the `eq` helper iff another module hasn't already added
@@ -287,7 +299,8 @@ Hooks.once("ready", () => {
     openAgendaEditor: (page) => openAgendaEditorForPage(page),
     openPlayerMap: () => new PlayerMapDialog().render(true),
     openVisibilityDialog: (page) => openVisibilityDialogForPage(page, client),
-    openSetupWizard: () => SetupWizardDialog.openSetupWizard(client)
+    openSetupWizard: () => SetupWizardDialog.openSetupWizard(client),
+    openEncounters: () => openEncountersDialog(client)
   };
   // Auto-fire the setup wizard on first run when campaignId is not configured.
   // GM-only: players don't configure the module.
@@ -299,7 +312,8 @@ Hooks.once("ready", () => {
 // -----------------------------------------------------------------------------
 // renderJournalDirectory hook — fires every time the sidebar's Journals
 // tab re-renders. Used here to inject the "Open GMhub Sync" header
-// button and to mark the active-session journal entry.
+// button (+ the v0.8.0 Encounters button) and to mark the active-session
+// journal entry.
 // -----------------------------------------------------------------------------
 Hooks.on("renderJournalDirectory", (app, html) => {
   // GM-only feature: no entry point shown to players.
@@ -321,6 +335,16 @@ Hooks.on("renderJournalDirectory", (app, html) => {
     button.innerHTML = `<i class="fas fa-cloud"></i> ${game.i18n.localize("GMHUB.Button.OpenDialog")}`;
     button.addEventListener("click", () => game.modules.get(MODULE_ID).api.openDialog());
     target.appendChild(button);
+  }
+  // v0.8.0 (GMV-13): "Encounters" sits next to the Sync button. Same
+  // idempotency guard so a sidebar re-render doesn't stack duplicates.
+  if (target && !target.querySelector(".gmhub-encounters-button")) {
+    const encBtn = document.createElement("button");
+    encBtn.type = "button";
+    encBtn.className = "gmhub-encounters-button";
+    encBtn.innerHTML = `<i class="fas fa-chess-knight"></i> ${game.i18n.localize("GMHUB.Button.Encounters")}`;
+    encBtn.addEventListener("click", () => game.modules.get(MODULE_ID).api.openEncounters());
+    target.appendChild(encBtn);
   }
   // Clear stale active-session highlights from the previous render —
   // the active session may have changed.

@@ -833,3 +833,211 @@ a.gmhub-pinned-name:hover {
   font-size: 0.85em;
   color: var(--color-text-dark-secondary, #666);
 }
+
+/* --- 13. EncountersDialog (v0.8.0, GMV-13) --------------------------------
+ * Grouped, expandable encounter list with per-creature actor pickers and a
+ * per-encounter Deploy footer. Reuses the .gmhub-badge pill family for the
+ * hidden / HP-override / homebrew / active-session badges so the colour
+ * language matches PlayerMapDialog (colour always paired with a label). */
+.gmhub-enc-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.gmhub-enc-header p {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* Icon-only controls (Refresh, open-actor): 44px comfort touch targets,
+ * the glyph stays visually small via centering rather than a big icon. */
+.gmhub-enc-icon-button {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.gmhub-enc-error {
+  color: #dc2626;
+}
+
+/* One <section> per session bucket. */
+.gmhub-enc-group {
+  margin: 8px 0 10px;
+}
+
+/* Active-session bucket echoes the sidebar active-session marker. */
+.gmhub-enc-group-active {
+  border-left: 3px solid #6366f1;
+  padding-left: 8px;
+}
+
+.gmhub-enc-group-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.gmhub-enc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gmhub-enc-item {
+  border: 1px solid var(--color-border-light-tertiary);
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.03);
+}
+
+.gmhub-enc-item-open {
+  background: rgba(99, 102, 241, 0.06);
+}
+
+/* Disclosure header — full-width button, ≥44px tall, left-aligned. */
+.gmhub-enc-toggle {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.gmhub-enc-name {
+  flex: 1 1 auto;
+  font-weight: 600;
+}
+
+.gmhub-enc-meta {
+  flex: 0 0 auto;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.gmhub-enc-body {
+  padding: 0 10px 8px;
+}
+
+.gmhub-enc-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Per-creature row card. */
+.gmhub-enc-row {
+  border: 1px solid var(--color-border-light-tertiary);
+  border-radius: 4px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* Unmatched rows get an amber left bar — these will be SKIPPED on Deploy. */
+.gmhub-enc-row-unmatched {
+  border-left: 3px solid rgba(245, 158, 11, 0.7);
+}
+
+.gmhub-enc-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.gmhub-enc-label {
+  font-weight: 600;
+}
+
+.gmhub-enc-qty {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* Homebrew badge — indigo, distinct from the status triad. */
+.gmhub-badge-homebrew {
+  background: rgba(99, 102, 241, 0.15);
+  color: #4f46e5;
+}
+
+.gmhub-enc-note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-style: italic;
+  opacity: 0.85;
+}
+
+/* Actor picker line: select grows, buttons stay natural width; wraps on
+ * narrow dialogs rather than overflowing. */
+.gmhub-enc-row-actor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.gmhub-enc-row-actor select {
+  flex: 1 1 220px;
+  min-height: 44px;
+  max-width: 100%;
+}
+
+.gmhub-enc-row-actor button {
+  min-height: 44px;
+  flex: 0 0 auto;
+  width: auto;
+}
+
+/* Deploy footer, right-aligned like every other dialog's button row. */
+.gmhub-enc-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.gmhub-enc-footer button {
+  min-height: 44px;
+  width: auto;
+  padding: 0 14px;
+}
+
+/* Inline status banner — same treatment as the SyncDialog status line. */
+.gmhub-enc-status {
+  background: rgba(0, 0, 0, 0.05);
+  border-left: 3px solid var(--color-border-highlight);
+  padding: 6px 10px;
+  margin-top: 8px;
+  font-style: italic;
+}
+
+.gmhub-enc-status p {
+  margin: 0;
+}
+
+/* Journal-directory Encounters button sits next to the Sync button. */
+.gmhub-encounters-button {
+  margin-left: 4px;
+  white-space: nowrap;
+}

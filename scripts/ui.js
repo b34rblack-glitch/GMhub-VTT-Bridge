@@ -41,6 +41,9 @@ import {
   SESSION_PLAN_FLAGS,
   SESSION_PLAN_PAGE_NAMES
 } from "./sync.js";
+// v0.8.0 (GMV-13): the Sync dialog's Encounters button opens the
+// EncountersDialog. One-way edge — encounters.js never imports ui.js.
+import { openEncountersDialog } from "./encounters.js";
 
 // -----------------------------------------------------------------------------
 // statusLabel(session)
@@ -118,6 +121,7 @@ function confirmViaDialog(DialogClass, props = {}) {
 //   - Test Connection button (calls /ping)
 //   - Pull / Push buttons (kick off the sync orchestration)
 //   - Pick Session button (opens PickSessionDialog)
+//   - Encounters button (opens EncountersDialog, v0.8.0)
 //   - Session lifecycle controls (start / pause / resume / end)
 //   - An inline status line + scrollable output pane
 // =============================================================================
@@ -256,6 +260,10 @@ export class SyncDialog extends Application {
         }
       });
       picker.render(true);
+    });
+    // v0.8.0 (GMV-13): open the encounters list / deploy dialog.
+    html.find('[data-action="encounters"]').on("click", () => {
+      openEncountersDialog(this.sync.client);
     });
     // Lifecycle buttons — `end` requires confirmation; the others are
     // reversible enough to fire immediately.

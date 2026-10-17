@@ -414,6 +414,54 @@ export class GmhubClient {
     );
   }
 
+  // ---- Encounters (v0.8.0 — GMV-13) -------------------------------------------
+  //
+  // GM-only prep content on the gmhub-app side (role-gated, never player-
+  // visible). The module is a PULL-ONLY consumer: it lists/reads encounters
+  // so the EncountersDialog can match creature rows to Foundry Actors and
+  // deploy tokens — there is no create/update/delete here and no write-back.
+  // Wire shape (list + detail identical, creatures embedded + sorted):
+  //   { id, campaign_id, session_id, scene_id, name, notes,
+  //     creatures: [{ id, label, quantity, hp_override, hidden, notes,
+  //                   is_homebrew, homebrew_stats, entity_id, sort_order }],
+  //     created_at, updated_at }
+  // Reads require `sessions:read`; a player-tier token gets 403 `gm_only`.
+
+  // GET /campaigns/{id}/encounters — cursor-paginated. Returns the raw
+  // `{ data, meta: { cursor } }` page (same envelope as `listSessions` before its
+  // normalization — callers that want every row use `listAllEncounters`).
+  // `opts`: { session_id?, cursor?, limit? }; null/undefined keys are
+  // dropped by `_url` so `{ session_id: undefined }` is safe.
+  listEncounters(campaignId, { session_id, cursor, limit } = {}) {
+    return this._request(
+      "GET",
+      `/campaigns/${encodeURIComponent(campaignId)}/encounters`,
+      undefined,
+      { session_id, cursor, limit }
+    );
+  }
+
+  // GET /campaigns/{id}/encounters/{id} — single encounter with its
+  // creature rows. Same serialized shape as a list row.
+  getEncounter(campaignId, encounterId) {
+    return this._request(
+      "GET",
+      `/campaigns/${encodeURIComponent(campaignId)}/encounters/${encodeURIComponent(encounterId)}`
+    );
+  }
+
+  // Drain every page of /encounters into one array via `iterateAll`.
+  // The encounters list uses the same `{ data, meta: { cursor } }` envelope as
+  // every other /api/v1 list; `iterateAll` also tolerates a top-level `cursor`.
+  async listAllEncounters(campaignId, opts = {}) {
+    const rows = [];
+    for await (const row of this.iterateAll(
+      (args) => this.listEncounters(campaignId, args),
+      opts
+    )) rows.push(row);
+    return rows;
+  }
+
   // ---- Helpers ---------------------------------------------------------------
 
   // ---------------------------------------------------------------------------
@@ -441,7 +489,9 @@ export class GmhubClient {
         if (yielded >= safetyLimit) return;
       }
       // Pull the next cursor out of the envelope; arrays are last-page.
-      const next = (Array.isArray(page) ? null : page?.meta?.cursor) ?? null;
+      // Two placements are tolerated: the canonical `meta.cursor` envelope
+      // (every /api/v1 list, encounters included) and a top-level `cursor`.
+      const next = (Array.isArray(page) ? null : (page?.cursor ?? page?.meta?.cursor)) ?? null;
       // No next page, or a cursor that repeats — we're done.
       if (!next || next === cursor) return;
       cursor = next;
