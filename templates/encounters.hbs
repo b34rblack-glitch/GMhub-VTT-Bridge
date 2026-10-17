@@ -1,0 +1,149 @@
+{{!--
+  templates/encounters.hbs
+  ===========================================================================
+  GMhub VTT Bridge — EncountersDialog body (v0.8.0, GMV-13).
+
+  Rendered by `encounters.js#EncountersDialog`. Lists the campaign's GMhub
+  encounters grouped by session (active session first, then other pulled
+  sessions by journal name, then "Unlinked"). Each encounter header is a
+  disclosure button; the expanded body lists creature rows with:
+    - label × quantity, hidden / HP-override / homebrew badges, GM note
+    - an actor <select> of auto-matched candidates ("~" suffix = loose match)
+    - for homebrew rows, a "Create actor from GMhub stats" button
+  and a per-encounter Deploy button.
+
+  Four-way state mirrors PickSessionDialog: loading / error / empty /
+  populated. All derivation (grouping, candidates, badges, selected option)
+  happens in getData(); the template only branches on precomputed booleans.
+  Every visible string flows through {{localize}} (lang/en.json).
+--}}
+<div class="gmhub-enc">
+  {{!-- Header row: instructional copy + Refresh. --}}
+  <header class="gmhub-enc-header">
+    <p>{{localize "GMHUB.Encounters.Body"}}</p>
+    <button type="button" data-action="refresh" class="gmhub-enc-icon-button"
+            aria-label="{{localize "GMHUB.Button.Refresh"}}" title="{{localize "GMHUB.Button.Refresh"}}">
+      <i class="fas fa-sync" aria-hidden="true"></i>
+    </button>
+  </header>
+
+  {{#if loading}}
+    <p class="gmhub-enc-loading"><em>{{localize "GMHUB.Encounters.Loading"}}</em></p>
+  {{else if error}}
+    {{!-- Error path: raw message so the GM can paste it into a bug report. --}}
+    <p class="gmhub-error gmhub-enc-error">{{error}}</p>
+  {{else if empty}}
+    <p class="gmhub-enc-empty gmhub-empty-state">{{localize "GMHUB.Encounters.Empty"}}</p>
+  {{else}}
+    {{#each groups}}
+      <section class="gmhub-enc-group {{#if this.isActive}}gmhub-enc-group-active{{/if}}">
+        <h3 class="gmhub-enc-group-title">
+          {{this.label}}
+          {{#if this.isActive}}
+            <span class="gmhub-badge gmhub-badge-mapped">{{localize "GMHUB.Encounters.Group.ActiveBadge"}}</span>
+          {{/if}}
+        </h3>
+        <ul class="gmhub-enc-list">
+          {{#each this.encounters}}
+            <li class="gmhub-enc-item {{#if this.expanded}}gmhub-enc-item-open{{/if}}">
+              {{!-- Disclosure header: whole row is the hit target (44px). --}}
+              <button type="button" class="gmhub-enc-toggle" data-action="toggle"
+                      data-encounter-id="{{this.id}}"
+                      aria-expanded="{{#if this.expanded}}true{{else}}false{{/if}}"
+                      aria-label="{{#if this.expanded}}{{localize "GMHUB.Encounters.Encounter.Collapse"}}{{else}}{{localize "GMHUB.Encounters.Encounter.Expand"}}{{/if}}: {{this.name}}">
+                <i class="fas {{#if this.expanded}}fa-chevron-down{{else}}fa-chevron-right{{/if}}" aria-hidden="true"></i>
+                <span class="gmhub-enc-name">{{this.name}}</span>
+                <span class="gmhub-enc-meta">{{localize "GMHUB.Encounters.Encounter.MatchedCount" matched=this.matchedCount total=this.creatureCount}}</span>
+              </button>
+
+              {{#if this.expanded}}
+                <div class="gmhub-enc-body">
+                  {{#if this.creatures.length}}
+                    <ul class="gmhub-enc-rows">
+                      {{#each this.creatures}}
+                        <li class="gmhub-enc-row {{#unless this.hasSelection}}gmhub-enc-row-unmatched{{/unless}}">
+                          {{!-- Line 1: label, quantity, badges. --}}
+                          <div class="gmhub-enc-row-head">
+                            <span class="gmhub-enc-label">{{this.label}}</span>
+                            {{#if this.showQuantity}}<span class="gmhub-enc-qty">×{{this.quantity}}</span>{{/if}}
+                            {{#if this.hidden}}
+                              <span class="gmhub-badge gmhub-badge-stale">{{localize "GMHUB.Encounters.Row.Hidden"}}</span>
+                            {{/if}}
+                            {{#if this.hpOverride}}
+                              <span class="gmhub-badge gmhub-badge-unmapped">{{localize "GMHUB.Encounters.Row.HpOverride" hp=this.hpOverride}}</span>
+                            {{/if}}
+                            {{#if this.isHomebrew}}
+                              <span class="gmhub-badge gmhub-badge-homebrew">{{localize "GMHUB.Encounters.Row.Homebrew"}}</span>
+                            {{/if}}
+                          </div>
+                          {{!-- Optional GM note for the row. --}}
+                          {{#if this.notes}}
+                            <p class="gmhub-enc-note">{{this.notes}}</p>
+                          {{/if}}
+                          {{!-- Line 2: actor picker (+ homebrew create). --}}
+                          <div class="gmhub-enc-row-actor">
+                            <select data-action="pick-actor"
+                                    data-encounter-id="{{this.encounterId}}"
+                                    data-creature-id="{{this.id}}"
+                                    aria-label="{{localize "GMHUB.Encounters.Row.ActorLabel"}}: {{this.label}}">
+                              <option value="" {{#unless this.hasSelection}}selected{{/unless}}>
+                                {{#if this.noCandidates}}{{localize "GMHUB.Encounters.Row.NoMatches"}}{{else}}{{localize "GMHUB.Encounters.Row.NoneOption"}}{{/if}}
+                              </option>
+                              {{#each this.options}}
+                                <option value="{{this.uuid}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                              {{/each}}
+                            </select>
+                            {{#if this.isHomebrew}}
+                              <button type="button" data-action="create-homebrew"
+                                      data-encounter-id="{{this.encounterId}}"
+                                      data-creature-id="{{this.id}}"
+                                      {{#if this.creating}}disabled{{/if}}>
+                                <i class="fas fa-flask" aria-hidden="true"></i>
+                                {{#if this.creating}}
+                                  {{localize "GMHUB.Encounters.Homebrew.Creating"}}
+                                {{else if this.homebrewExists}}
+                                  {{localize "GMHUB.Encounters.Homebrew.Recreate"}}
+                                {{else}}
+                                  {{localize "GMHUB.Encounters.Homebrew.Create"}}
+                                {{/if}}
+                              </button>
+                              {{#if this.homebrewExists}}
+                                <button type="button" class="gmhub-enc-icon-button" data-action="open-homebrew"
+                                        data-creature-id="{{this.id}}"
+                                        aria-label="{{localize "GMHUB.Encounters.Homebrew.Open"}}"
+                                        title="{{localize "GMHUB.Encounters.Homebrew.Open"}}">
+                                  <i class="fas fa-external-link-alt" aria-hidden="true"></i>
+                                </button>
+                              {{/if}}
+                            {{/if}}
+                          </div>
+                        </li>
+                      {{/each}}
+                    </ul>
+                  {{else}}
+                    <p class="gmhub-empty-state">{{localize "GMHUB.Encounters.Encounter.NoCreatures"}}</p>
+                  {{/if}}
+
+                  {{!-- Per-encounter Deploy. Disabled while a deploy is in
+                       flight or when no row has an actor (nothing to place). --}}
+                  <footer class="gmhub-enc-footer">
+                    <button type="button" data-action="deploy" data-encounter-id="{{this.id}}"
+                            {{#if this.busy}}disabled{{/if}}{{#unless this.anyMatched}} disabled{{/unless}}>
+                      <i class="fas fa-chess-knight" aria-hidden="true"></i>
+                      {{#if this.busy}}{{localize "GMHUB.Encounters.Button.Deploying"}}{{else}}{{localize "GMHUB.Encounters.Button.Deploy"}}{{/if}}
+                    </button>
+                  </footer>
+                </div>
+              {{/if}}
+            </li>
+          {{/each}}
+        </ul>
+      </section>
+    {{/each}}
+  {{/if}}
+
+  {{!-- Inline status line (deploy progress, homebrew result). --}}
+  {{#if status}}
+    <section class="gmhub-enc-status"><p>{{status}}</p></section>
+  {{/if}}
+</div>

@@ -8,7 +8,7 @@
     - Connection info (base URL, campaign, active session, last pull)
     - Setup prompts when campaign / session are missing
     - Session-lifecycle controls (start / pause / resume / end)
-    - Sync actions (Ping / Pull / Push / Pick Session)
+    - Sync actions (Ping / Pull / Push / Pick Session / Encounters)
     - Inline status banner + <pre> output panel
 
   Every visible string flows through `{{localize}}` so en.json is the
@@ -116,6 +116,11 @@
       </button>
       <button type="button" data-action="pick-session">
         <i class="fas fa-list"></i> {{localize "GMHUB.Button.PickSession"}}
+      </button>
+      {{!-- v0.8.0 (GMV-13): encounter import & deploy. Not gated on an
+           active session — unlinked encounters are deployable too. --}}
+      <button type="button" data-action="encounters">
+        <i class="fas fa-chess-knight"></i> {{localize "GMHUB.Button.Encounters"}}
       </button>
     </section>
   {{/unless}}

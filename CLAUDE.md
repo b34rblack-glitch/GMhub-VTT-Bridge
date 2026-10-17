@@ -25,7 +25,7 @@ When the user asks for an "audit" or "review", deliver findings inline in the co
 | Repo | `github.com/b34rblack-glitch/GMhub-VTT-Bridge` |
 | Sister repo | `github.com/b34rblack-glitch/GMhub-app` (web app; tracks this repo as Epic G; owns the `/api/v1` surface as Epic E) |
 | Module ID | `gmhub-vtt-bridge` |
-| Current version | `0.6.1` |
+| Current version | `0.8.0` |
 | Foundry compat | v11 minimum, v14 verified, v14 maximum |
 | System | `dnd5e` ≥ 3.0.0 |
 | Manifest URL | `https://github.com/b34rblack-glitch/GMhub-VTT-Bridge/releases/latest/download/module.json` |
@@ -40,9 +40,7 @@ SCOPE.md                 # Durable product scope/intent (read first)
 CLAUDE.md                # This file (agent guardrails)
 docs/EPICS.md            # Append-only shipped-feature log + backlog
 docs/SISTER_REPO.md      # Cross-repo contract with gmhub-app
-.github/
-  pull_request_template.md
-  CODEOWNERS
+.github/                 # pull_request_template.md, CODEOWNERS
 ```
 
 Source layout:
@@ -54,6 +52,7 @@ scripts/
   api-client.js          # REST client: ping, list, get, create, update; bearer auth
   sync.js                # Push/pull orchestration; windowed session pull; tiptapToHtml; pinned-card render
   ui.js                  # Sync dialog, session pick, push preview, agenda editor
+  encounters.js          # v0.8.0: EncountersDialog, actor matching, homebrew actor build, deploy-to-scene + combat
 styles/
   gmhub.css              # Module-specific UI styling
 templates/               # Handlebars templates for the sync dialog
@@ -74,6 +73,7 @@ This module is coupled to `gmhub-app` through exactly one surface: the `/api/v1`
   - `session_plan.agenda` is opaque JSON server-side; canonical Scene shape `{ id, title, notes, entities: [{id, name, entityType}], estimated_duration_min, order, ticked }`.
   - **Pinned shape:** `{ entity_id, entity_type, name, staged_at, position, pin_reason? }`. Server-side `pin_reason` shipped in `gmhub-app` 2026-05-09; v0.4.1+ renders it.
   - **Visibility ride-along.** Foundry's per-page eye icon (`page.ownership.default`) reverse-maps to `visibility`: `NONE` → `gm_only`, `OBSERVER` → `campaign`.
+  - **Encounters (v0.8.0, read-only).** `GET /campaigns/{id}/encounters[/{id}]` (GM-only; `{ data, meta: { cursor } }` pages, `?session_id=` filter). Encounter `{ id, session_id, scene_id, name, notes, creatures: [{ id, label, quantity, hp_override, hidden, notes, is_homebrew, homebrew_stats, entity_id, sort_order }] }`. `label` is the actor-match key; `homebrew_stats` (HomebrewStats JSON — `hp`/`ac` required, the rest optional) feeds `createHomebrewActor`. The module never writes encounters.
   - **Windowed session pull (v0.4.0; recap count GM-configurable in v0.5.0).** `listSessions` filtered client-side to: prep + running + the `sessionRecapCount` most-recently-ended sessions (default 1). Orphans deleted on Pull unless they carry unpushed dirty edits — and cleanup is skipped entirely when the session-list fetch fails.
 - Either side changes the contract → the other side's `docs/EPICS.md` gets a follow-up row.
 
@@ -81,21 +81,20 @@ This module is coupled to `gmhub-app` through exactly one surface: the `/api/v1`
 
 > **Update this section at the start of every new release.**
 
+`v0.8.0` closes **GMV-13**, encounter import & deploy — the first feature that reaches past journals into Actors, Tokens and Combat. The encounter *builder* ships in `gmhub-app` (migration `0033_encounters`, GM-only `/api/v1/campaigns/{id}/encounters` list/detail); this module is a **pull-only** consumer with no write-back. New `scripts/encounters.js` holds everything: `EncountersDialog` (opened from a new Sync-dialog button and a Journal-sidebar button next to GMhub Sync) lists encounters active-session-first then grouped by pulled session journal / "Unlinked", expandable to creature rows; `matchActorCandidates` auto-matches each row's `label` against world Actors → every Actor compendium index (cached per open) → loose match, with the GM's pick remembered per label in the hidden `encounterActorMap` world setting; `createHomebrewActor` builds (or refreshes, keyed on `flags.gmhub-vtt-bridge.encounterCreatureId`) a dnd5e `npc` in a "GMhub Encounters" folder from `homebrew_stats` via the pure `buildHomebrewActorData`; `deployEncounter` awaits one canvas click (Escape cancels), places `quantity` tokens per matched row on a grid-snapped ring (`getSnappedPoint` v12+ / `getSnappedPosition` v11), honours `hidden` and `hp_override` (token `delta`, forcing `actorLink:false` for that row), imports compendium actors into the world first, stamps `flags.gmhub-vtt-bridge.encounterId`, then adds the tokens to the scene's Combat (created if none; initiative untouched). `GmhubClient` gains `listEncounters` / `getEncounter` / `listAllEncounters`. The homebrew → dnd5e field mapping is best-effort (see §5).
+
 `v0.7.0` closed **GMV-7**, an Agenda Editor hardening-then-feature pass over `AgendaEditorDialog` (`scripts/ui.js`) and `templates/agenda-editor.hbs`, with no wire-format change (so `docs/SISTER_REPO.md` and the `/api/v1` contract are untouched — Save already persisted the whole row object to the structured `agendaItems`/`pinnedRefs` flags). Hardening first: (1) a `pending` re-entrancy guard on Save (mirroring `VisibilityDialog`) so a double-click can't fire two overlapping `setFlag`/`update` sequences; (2) the up/down/remove row buttons gain localized `aria-label`s (their `<i>` `aria-hidden`) and 44px touch targets. Then the feature on that hardened base: a per-scene entity-link picker — an "Add entity" button opens a kind-grouped `<select>` of **already-pulled** entities and renders removable chips against the canonical `entities:[{id,name,entityType}]` (camelCase) shape, sourced by a new exported `listPulledEntities()` in `sync.js`; and the pinned row's brittle free-text `entity_id`/`entity_type` inputs are replaced by the same single-select picker (writing the snake `entity_id`/`entity_type`/`name` shape, with a "(not pulled)" fallback option that preserves a stored link that isn't in the current pull). Both round-trip through Push/Pull and render as content-links. (GMV-7 was planned as `v0.6.0`; re-versioned to `v0.7.0` during rebase because GMV-12 and GMV-4 landed `v0.6.0`/`v0.6.1` on the same base first.)
 
-`v0.6.1` (shipped just before, on the same base) closed **GMV-4**, the player-mapping resolver — a consumer-side UI pass with no wire-format change: `PlayerMapDialog` is extended in place with per-row status badges (`mapped`/`unmapped`/`stale`/`departed`), unique-name auto-suggest (pre-selected only), inline Clear, and a departed/stale synthetic-option round-trip; the Pull-time `GMHUB.Warn.UnmappedRecipients` toast becomes a clickable `notifyClickable` toast that opens the resolver; and a latent setup-wizard bug is fixed (the dialog now honors `options.onSubmit` and an `options.campaignId` override). AC3 ownership (`computePageOwnership`) is unchanged — resolved mappings apply on the next Pull.
+`v0.6.1` (shipped just before, on the same base) closed **GMV-4**, the player-mapping resolver — a consumer-side UI pass with no wire-format change: `PlayerMapDialog` is extended in place with per-row status badges (`mapped`/`unmapped`/`stale`/`departed`), unique-name auto-suggest (pre-selected only), inline Clear, and a departed/stale synthetic-option round-trip; the Pull-time `GMHUB.Warn.UnmappedRecipients` toast becomes a clickable `notifyClickable` toast that opens the resolver; and a latent setup-wizard bug is fixed (the dialog now honors `options.onSubmit` and an `options.campaignId` override). AC3 ownership (`computePageOwnership`) is unchanged — resolved mappings apply on the next Pull. `v0.6.0` (same base) closed **GMV-12**, also a consumer-side UI pass with no wire-format change: the copy-pasted promise-wrapped confirm-dialog idiom is extracted into one module-scope `confirmViaDialog(DialogClass, props)` helper in `ui.js` (all three call sites rewritten on it), and a new `PrePushReviewDialog` **supersedes** `PushPreviewDialog` as the single Push confirm-gate — a grouped dirty-state dashboard with click-through per-entry inspection plus a read-only visibility-drift group; `total` is unchanged so the `total==0` empty state is preserved, and `PushPreviewDialog` + `templates/push-preview.hbs` + its CSS/i18n are retired.
 
-`v0.6.0` (same base) closed **GMV-12**, also a consumer-side UI pass with no wire-format change: the copy-pasted promise-wrapped confirm-dialog idiom is extracted into one module-scope `confirmViaDialog(DialogClass, props)` helper in `ui.js` (all three call sites rewritten on it), and a new `PrePushReviewDialog` **supersedes** `PushPreviewDialog` as the single Push confirm-gate — a grouped dirty-state dashboard with click-through per-entry inspection plus a read-only visibility-drift group; `total` is unchanged so the `total==0` empty state is preserved, and `PushPreviewDialog` + `templates/push-preview.hbs` + its CSS/i18n are retired.
-
-Next on deck (recommendation): **GMV-5** (ApplicationV2 migration).
-
-No active release branch.
+Next on deck (recommendation): **GMV-5** (ApplicationV2 migration) — `EncountersDialog` is a fourth V1 dialog to carry across. Active release branch: `feat/encounters-panel` (v0.8.0).
 
 ## 5. Known Issues & Tech Debt
 
 | Priority | Issue | Notes |
 |---|---|---|
-| 🟡 Med | ApplicationV1 deprecation | ApplicationV1 still functional in v14 but officially deprecated. Sync dialog + editors (incl. `AgendaEditorDialog` and the extended `PlayerMapDialog`) are V1; migration tracked as GMV-5, still deferred. |
+| 🟡 Med | ApplicationV1 deprecation | ApplicationV1 still functional in v14 but officially deprecated. Sync dialog + editors (incl. `AgendaEditorDialog`, the extended `PlayerMapDialog`, and v0.8.0's `EncountersDialog`) are V1; migration tracked as GMV-5, still deferred. |
+| 🟡 Med | Homebrew → dnd5e actor mapping is best-effort; verify on dnd5e 4.x/5.x | `buildHomebrewActorData` (`encounters.js`) targets the dnd5e 3.x data model: flat AC, `traits.{dr,di,dv,ci}.custom`, `traits.languages.custom`, feat `system.activation.type`. dnd5e 4.x moved activation onto activities and 5.x reshaped damage traits (`dm`), so those fields may be silently dropped there (description/HP/AC/abilities still land). Saving-throw / skill strings have no reliable slot and are preserved in the biography instead. Create falls back to name/HP/AC if the full shape is rejected. |
 | 🟢 Low | Clickable-toast DOM binding is version-fragile | `notifyClickable` (`sync.js`) resolves the rendered notification `<li>` to attach its click handler. The v13+ `Notification.element` path is doc-confirmed and verified on v14; the v11/12 `#notifications [data-id]` fallback is best-effort and unverified. On any unrecognized DOM shape the toast degrades to non-clickable (never throws) — re-test the binding on every Foundry minor. |
 | 🟢 Low | Stale-mapping preservation leans on a synthetic `<select>` option | `PlayerMapDialog` renders a synthetic selected option carrying the raw id for stale / departed-stale rows so `_updateObject`'s from-scratch rebuild round-trips them. If that option is ever dropped from `player-map.hbs`, an unrelated Save silently drops those keys — keep the synthetic-option render whenever the union/departed rows change. |
 | 🟢 Low | Cross-campaign session journals can leak through Push | Switching campaigns leaves the old campaign's session journals in Foundry until the next Pull's orphan cleanup. |
@@ -131,7 +130,7 @@ git clone https://github.com/b34rblack-glitch/GMhub-VTT-Bridge.git "$FOUNDRY_DAT
 
 ## 8. Claude Code Tips for This Repo
 
-- The module is small (~1000 LOC across 4 JS files); whole-file reads are fine.
+- The module is small (~5000 LOC across 7 JS files); whole-file reads are fine.
 - Always read `module.json` first when editing — the `esmodules`/`styles`/`languages` arrays gate what Foundry loads.
 - **Read `SCOPE.md` before agreeing to a feature.** If a request would cross an out-of-scope line, surface that explicitly rather than implementing.
 - Foundry's API is undocumented in `node_modules`; reference docs live at https://foundryvtt.com/api/v14/ — fetch live if needed.
