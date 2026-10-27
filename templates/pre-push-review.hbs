@@ -11,7 +11,7 @@
   Interaction model:
     - Entity / note / session-journal rows carry `data-action="open-doc"`
       + `data-uuid`, opening the underlying Foundry page/journal on click.
-    - Quick-notes (a queue count), the session-plan field label, and the
+    - Session-log entries (a queue count), the session-plan field label, and the
       drift rows are read-only (no click target). Drift rows show the page
       name only.
 
@@ -89,7 +89,7 @@
       </section>
     {{/if}}
 
-    {{!-- Quick notes — a queue count with no per-entry document, so
+    {{!-- Session log — a queue count with no per-entry document, so
          read-only (no click target). --}}
     {{#if quickNotes}}
       <section class="gmhub-review-group">

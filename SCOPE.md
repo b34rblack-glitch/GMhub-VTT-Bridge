@@ -23,7 +23,7 @@ GMhub (webapp)                          Foundry VTT
 │              │                       │  - plan      │
 │              │                       │  - reveals   │
 │  RECAP       │ ◀─────────── Push ───│  - new ents  │
-│  - quick-nts │                       │  - quick-nts │
+│  - sess-log  │                       │  - sess-log  │
 │  - reveals   │                       │              │
 └──────────────┘                       └──────────────┘
 ```
@@ -44,7 +44,7 @@ GMhub (webapp)                          Foundry VTT
 - **Visibility changes** on any GMhub-linked item.
 - **New entries** created in Foundry.
 - **Text edits** to existing entity/note content.
-- **Quick notes** captured during play.
+- **Session log entries** captured during play.
 - **Session lifecycle events** (start/pause/resume/end).
 - **Plan edits to any pulled session.**
 
@@ -110,13 +110,13 @@ The encounter **builder** lives in gmhub-app (GM-only prep content: a named list
 
 ### Push
 1. GM clicks **Push to GMhub**.
-2. Module collects everything dirty and sends edits / new entries / visibility changes / quick-notes / plan edits in one batch.
+2. Module collects everything dirty and sends edits / new entries / visibility changes / session log entries / plan edits in one batch.
 3. GMhub responds with assigned IDs for new rows; the module writes those back into Foundry flags.
 
-### Quick notes
-- Foundry has a quick-capture surface available during a live session.
-- Notes are queued in Foundry world flags.
-- On push, queued notes are sent as `quick_notes` rows attached to the active session.
+### Session log
+- Foundry has a quick-capture surface available during a live session for session log entries.
+- Entries are queued in Foundry world flags.
+- On push, queued entries are sent as `quick_notes` rows (`POST …/quick-notes`) attached to the active session — the web app labels these the **Session log**.
 
 ## Cross-references
 

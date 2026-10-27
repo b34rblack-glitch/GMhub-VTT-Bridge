@@ -324,7 +324,7 @@ export class SyncDialog extends Application {
       try {
         const result = await safeCall(() => this.sync.pushAll());
         const p = result?.pushed ?? { entities: 0, notes: 0, sessionPlans: 0, quickNotes: 0 };
-        const summary = `entities: ${p.entities}, notes: ${p.notes}, sessions: ${p.sessionPlans}, quick notes: ${p.quickNotes}`;
+        const summary = `entities: ${p.entities}, notes: ${p.notes}, sessions: ${p.sessionPlans}, session log: ${p.quickNotes}`;
         const errs = (result?.errors ?? []).map((e) => `${e.name}: ${e.message}`).join("\n");
         // Include failed-count in the headline so the GM notices partial failures.
         this._setStatus(
@@ -383,11 +383,11 @@ export class LifecycleConfirmDialog extends Application {
 // =============================================================================
 // The pre-push review dashboard — the single confirm gate on Push
 // (supersedes the old PushPreviewDialog). Groups every pending change
-// (entities create/update, notes create/update, quick-note queue,
+// (entities create/update, notes create/update, session-log queue,
 // per-session plan edits) with counts and per-entry rows, plus a
 // read-only visibility-drift group. Document-backed rows (entities,
 // notes, session journals) open the underlying page/journal on click;
-// quick-notes, the session-plan field label, and drift rows are
+// session-log entries, the session-plan field label, and drift rows are
 // read-only. Fed by `previewPush()` (see sync.js).
 //
 // total==0 preserves the old behaviour exactly: the dialog still opens
