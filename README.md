@@ -12,7 +12,7 @@ GMhub VTT Bridge syncs your GMhub campaign content into Foundry as journal entri
 
 - **Your codex in Foundry.** Pull your NPCs, Locations, Factions, Items, Quests, and Lore into Foundry journals, along with your long-form notes and upcoming session plans.
 - **Session journals, ready to run.** Each planned session becomes its own journal with your agenda, GM notes, and pinned entities rendered as clickable cards that link straight to the full entry.
-- **Capture at the table, file it later.** Edits, new entries, and quick notes you jot down during play are pushed back to GMhub with one click — attached to the right session.
+- **Capture at the table, file it later.** Edits, new entries, and session log entries you jot down during play are pushed back to GMhub with one click — attached to the right session.
 - **Player visibility that follows your prep.** Content you mark **Everyone** in GMhub is visible to your players in Foundry; **Shared** content reaches only the players you chose; **Private** stays GM-only.
 - **Encounters, deployed in one click.** Encounters you build in GMhub show up in Foundry's **Encounters** dialog: match each creature to a world or compendium actor (or generate a dnd5e NPC from your homebrew stat block), then click a spot on the scene to place the tokens — hidden and HP-adjusted as prepped — and drop them straight into the combat tracker.
 - **You stay in control.** Sync is manual — nothing moves until you press **Pull** or **Push**. (An optional auto-push setting is there if you want edits sent immediately.)
@@ -66,7 +66,7 @@ Then in Foundry, go to **Game Settings → Configure Settings → GMhub VTT Brid
 Open the **GMhub Sync** button in Foundry's Journal sidebar. From there you can test the connection, **Pull** the latest from GMhub, **Push** your table-side changes back, start, pause, or end the live session, and open **Encounters** (also available as its own sidebar button) to match and deploy a prepped encounter onto the current scene.
 
 - **Pull** fills in six codex journals (one per entity type), a Notes journal, and a **GMhub Sessions** folder with one journal per upcoming or recent session.
-- Right-click a session journal and choose **Set as active session** to tell the module which session your quick notes belong to.
+- Right-click a session journal and choose **Set as active session** to tell the module which session your session log entries belong to.
 - To change who can see something from inside Foundry, right-click the page and choose **Edit visibility…** — the change syncs back to GMhub on your next Push.
 
 A note on conflicts: sync is deliberately simple — the direction you press wins. Pull overwrites Foundry with GMhub's version; Push overwrites GMhub with Foundry's. If you edit the same entry in both places between syncs, whichever button you press decides which version survives.

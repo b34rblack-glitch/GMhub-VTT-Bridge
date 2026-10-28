@@ -62,18 +62,18 @@
 12. **Edit one entity page** in Foundry (e.g., NPCs → "Goblin King").
     Save. Open `Hooks.callAll(\"updateJournalEntryPage\", …)` should have
     set `flags.gmhub-vtt-bridge.dirty = true` on the page.
-13. **Capture a quick note** during play (chat command, sidebar button,
+13. **Capture a session log entry** during play (chat command, sidebar button,
     or `game.modules.get("gmhub-vtt-bridge").api.sync.enqueueQuickNote("…")`).
 14. **Edit the GM Notes page** in the session journal.
 15. **Flip an entity's reveal** (set `flags.gmhub-vtt-bridge.revealedAt` via the
     page macro, or trigger via the future Reveal UI).
 16. **Sync Dialog → Push**. Expect `pendingPushQueue` to drain (the
-    quick note is consumed); the entity edit and reveal flip mirror to
+    session log entry is consumed); the entity edit and reveal flip mirror to
     GMhub. Verify on GMhub:
     - `GET /api/v1/campaigns/{id}/entities/{externalId}` returns the
       edited summary.
     - `GET /api/v1/campaigns/{id}/sessions/{sessionId}/quick-notes` (or
-      the session detail page on GMhub) shows the captured quick note.
+      the session detail page on GMhub) shows the captured session log entry.
     - The reveal banner / `revealed_at` timestamp is set.
 
 ## Lifecycle

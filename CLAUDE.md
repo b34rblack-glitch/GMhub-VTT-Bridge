@@ -25,7 +25,7 @@ When the user asks for an "audit" or "review", deliver findings inline in the co
 | Repo | `github.com/b34rblack-glitch/GMhub-VTT-Bridge` |
 | Sister repo | `github.com/b34rblack-glitch/GMhub-app` (web app; tracks this repo as Epic G; owns the `/api/v1` surface as Epic E) |
 | Module ID | `gmhub-vtt-bridge` |
-| Current version | `0.8.0` |
+| Current version | `0.8.1` |
 | Foundry compat | v11 minimum, v14 verified, v14 maximum |
 | System | `dnd5e` ≥ 3.0.0 |
 | Manifest URL | `https://github.com/b34rblack-glitch/GMhub-VTT-Bridge/releases/latest/download/module.json` |
@@ -80,6 +80,8 @@ This module is coupled to `gmhub-app` through exactly one surface: the `/api/v1`
 ## 4. Current Focus
 
 > **Update this section at the start of every new release.**
+
+`v0.8.1` — copy-only: 'Quick notes' → 'Session log' to match gmhub-app; no wire change.
 
 `v0.8.0` closes **GMV-13**, encounter import & deploy — the first feature that reaches past journals into Actors, Tokens and Combat. The encounter *builder* ships in `gmhub-app` (migration `0033_encounters`, GM-only `/api/v1/campaigns/{id}/encounters` list/detail); this module is a **pull-only** consumer with no write-back. New `scripts/encounters.js` holds everything: `EncountersDialog` (opened from a new Sync-dialog button and a Journal-sidebar button next to GMhub Sync) lists encounters active-session-first then grouped by pulled session journal / "Unlinked", expandable to creature rows; `matchActorCandidates` auto-matches each row's `label` against world Actors → every Actor compendium index (cached per open) → loose match, with the GM's pick remembered per label in the hidden `encounterActorMap` world setting; `createHomebrewActor` builds (or refreshes, keyed on `flags.gmhub-vtt-bridge.encounterCreatureId`) a dnd5e `npc` in a "GMhub Encounters" folder from `homebrew_stats` via the pure `buildHomebrewActorData`; `deployEncounter` awaits one canvas click (Escape cancels), places `quantity` tokens per matched row on a grid-snapped ring (`getSnappedPoint` v12+ / `getSnappedPosition` v11), honours `hidden` and `hp_override` (token `delta`, forcing `actorLink:false` for that row), imports compendium actors into the world first, stamps `flags.gmhub-vtt-bridge.encounterId`, then adds the tokens to the scene's Combat (created if none; initiative untouched). `GmhubClient` gains `listEncounters` / `getEncounter` / `listAllEncounters`. The homebrew → dnd5e field mapping is best-effort (see §5).
 
