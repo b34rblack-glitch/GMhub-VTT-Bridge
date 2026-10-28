@@ -37,7 +37,7 @@ GMhub (webapp)                          Foundry VTT
 
 ### Content types pulled from GMhub
 - **Entities** (NPCs, Locations, Factions, Items, Quests, Lore) — the codex.
-- **Long-form notes** (GMhub `notes` table).
+- **Long-form notes** (GMhub `notes` table). Since gmhub-app merged Threads into Notes (2026-10-28) every note also carries comments and emoji reactions; the module syncs only a note's title / body / visibility / recipients and ignores its discussion entirely.
 - **Session plans (windowed)** — all sessions in `prep`, the running session if any, and the most-recently-ended session(s) — a GM-configurable count (default 1) set via the `sessionRecapCount` module setting.
 
 ### Content types pushed back from Foundry
